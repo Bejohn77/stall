@@ -3,6 +3,7 @@ import toast from 'react-hot-toast'
 import { FiAlertTriangle, FiDownload, FiPrinter, FiSearch, FiTrash2 } from 'react-icons/fi'
 import Topbar from '../components/Topbar'
 import api from '../services/api'
+import { getFallbackData } from '../services/fallbackData'
 import { formatCurrency, formatDate } from '../utils/formatters'
 
 const damageReasons = ['Broken', 'Expired', 'Water Damage', 'Customer Return', 'Lost', 'Other']
@@ -24,16 +25,39 @@ export default function DamagedProductsPage() {
     setLoading(true)
     try {
       const [{ data: productData }, { data: damageData }] = await Promise.all([
-        api.get('/products'),
-        api.get('/damages'),
+        api.get('/products').catch((error) => {
+          const fallback = getFallbackData('/products')
+          if (fallback) {
+            return { data: fallback }
+          }
+          throw error
+        }),
+        api.get('/damages').catch((error) => {
+          const fallback = getFallbackData('/damages')
+          if (fallback) {
+            return { data: fallback }
+          }
+          throw error
+        }),
       ])
-      setProducts(productData)
-      setDamages(damageData)
-      if (!selectedProductId && productData.length) {
-        setSelectedProductId(productData[0]._id)
+
+      const normalizedProducts = Array.isArray(productData) ? productData : []
+      const normalizedDamages = Array.isArray(damageData) ? damageData : []
+
+      setProducts(normalizedProducts)
+      setDamages(normalizedDamages)
+
+      if (!selectedProductId && normalizedProducts.length) {
+        setSelectedProductId(normalizedProducts[0]._id)
       }
-    } catch {
-      toast.error('Could not load damage data')
+      if (!normalizedProducts.length) {
+        setSelectedProductId('')
+      }
+    } catch (error) {
+      console.error('Failed to load damage data', error)
+      setProducts([])
+      setDamages([])
+      toast.error(error?.response?.data?.message || 'Could not load damage data')
     } finally {
       setLoading(false)
     }
