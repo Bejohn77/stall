@@ -1,6 +1,7 @@
 const Product = require('../models/Product')
 const Sale = require('../models/Sale')
 const ServiceBill = require('../models/ServiceBill')
+const Damage = require('../models/Damage')
 const { getMode, getStore } = require('../utils/store')
 
 function buildDateRange(type) {
@@ -59,6 +60,8 @@ async function getDashboard(req, res, next) {
       const recentSales = [...store.sales].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)).slice(0, 5)
       const lowStockItems = store.products.filter((product) => product.stockQuantity <= 3).slice(0, 5)
       const todayServiceBills = (store.serviceBills || []).filter((bill) => new Date(bill.createdAt) >= todayRange.start && new Date(bill.createdAt) <= todayRange.end)
+      const todayDamages = (store.damages || []).filter((damage) => new Date(damage.createdAt) >= todayRange.start && new Date(damage.createdAt) <= todayRange.end)
+      const monthlyDamages = (store.damages || []).filter((damage) => new Date(damage.createdAt) >= monthRange.start && new Date(damage.createdAt) <= monthRange.end)
 
       const todaySalesValue = todaySales.reduce((sum, sale) => sum + sale.grandTotal, 0)
       const todayProfitValue = todaySales.reduce((sum, sale) => sum + sale.profit, 0)
@@ -75,6 +78,11 @@ async function getDashboard(req, res, next) {
         recentSales,
         lowStockItems,
         serviceStats: summarizeServiceActivity(todayServiceBills),
+        damageStats: {
+          todayDamagedItems: todayDamages.reduce((sum, damage) => sum + Number(damage.quantity || 0), 0),
+          todayDamageCost: todayDamages.reduce((sum, damage) => sum + Number(damage.totalLoss || 0), 0),
+          monthlyDamageCost: monthlyDamages.reduce((sum, damage) => sum + Number(damage.totalLoss || 0), 0),
+        },
         dailySalesChart: [
           { name: 'Mon', sales: 3200 },
           { name: 'Tue', sales: 4200 },
@@ -93,7 +101,7 @@ async function getDashboard(req, res, next) {
       })
     }
 
-    const [todaySales, monthlySales, totalProducts, lowStockProducts, recentSales, lowStockItems, todayServiceBills] = await Promise.all([
+    const [todaySales, monthlySales, totalProducts, lowStockProducts, recentSales, lowStockItems, todayServiceBills, todayDamages, monthlyDamages] = await Promise.all([
       Sale.find({ createdAt: { $gte: buildDateRange('today').start, $lte: buildDateRange('today').end } }),
       Sale.find({ createdAt: { $gte: buildDateRange('month').start, $lte: buildDateRange('month').end } }),
       Product.countDocuments(),
@@ -101,6 +109,8 @@ async function getDashboard(req, res, next) {
       Sale.find().sort({ createdAt: -1 }).limit(5),
       Product.find({ stockQuantity: { $lte: 3 } }).limit(5),
       ServiceBill.find({ createdAt: { $gte: buildDateRange('today').start, $lte: buildDateRange('today').end } }),
+      Damage.find({ createdAt: { $gte: buildDateRange('today').start, $lte: buildDateRange('today').end } }),
+      Damage.find({ createdAt: { $gte: buildDateRange('month').start, $lte: buildDateRange('month').end } }),
     ])
 
     const todaySalesValue = todaySales.reduce((sum, sale) => sum + sale.grandTotal, 0)
@@ -135,6 +145,11 @@ async function getDashboard(req, res, next) {
       recentSales,
       lowStockItems,
       serviceStats: summarizeServiceActivity(todayServiceBills),
+      damageStats: {
+        todayDamagedItems: todayDamages.reduce((sum, damage) => sum + Number(damage.quantity || 0), 0),
+        todayDamageCost: todayDamages.reduce((sum, damage) => sum + Number(damage.totalLoss || 0), 0),
+        monthlyDamageCost: monthlyDamages.reduce((sum, damage) => sum + Number(damage.totalLoss || 0), 0),
+      },
       dailySalesChart,
       revenueChart,
     })

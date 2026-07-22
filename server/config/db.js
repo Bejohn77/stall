@@ -5,9 +5,9 @@ async function connectDatabase() {
   const dbName = process.env.DB_NAME?.trim()
 
   if (!mongoUri) {
-    const message = 'MongoDB connection is not configured. Set MONGODB_URI in server/.env and, if needed, DB_NAME.'
-    console.error(message)
-    throw new Error(message)
+    global.__dbMode = 'memory'
+    console.warn('MongoDB connection is not configured. Falling back to the in-memory store.')
+    return null
   }
 
   try {
@@ -19,9 +19,10 @@ async function connectDatabase() {
     console.log(`Connected to MongoDB${dbName ? ` (database: ${dbName})` : ''}`)
     return connection
   } catch (error) {
-    const message = `MongoDB connection failed. Check MONGODB_URI and DB_NAME in server/.env. ${error.message}`
-    console.error(message)
-    throw new Error(message)
+    global.__dbMode = 'memory'
+    const message = `MongoDB connection failed. Falling back to the in-memory store. ${error.message}`
+    console.warn(message)
+    return null
   }
 }
 
