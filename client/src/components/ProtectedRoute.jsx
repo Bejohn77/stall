@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { FiLock } from 'react-icons/fi'
 import toast from 'react-hot-toast'
 import api from '../services/api'
@@ -7,6 +7,10 @@ export default function ProtectedRoute({ children }) {
   const [password, setPassword] = useState('')
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
+
+  useEffect(() => {
+    setIsAuthenticated(false)
+  }, [])
 
   const handleSubmit = async (event) => {
     event.preventDefault()
