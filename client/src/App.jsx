@@ -1,5 +1,6 @@
 import { Routes, Route } from 'react-router-dom'
 import MainLayout from './layouts/MainLayout'
+import ProtectedRoute from './components/ProtectedRoute'
 import DashboardPage from './pages/DashboardPage'
 import ProductsPage from './pages/ProductsPage'
 import NewSalePage from './pages/NewSalePage'
@@ -14,7 +15,7 @@ export default function App() {
     <Routes>
       <Route element={<MainLayout />}> 
         <Route path="/" element={<DashboardPage />} />
-        <Route path="/products" element={<ProductsPage />} />
+        <Route path="/products" element={<ProtectedRoute><ProductsPage /></ProtectedRoute>} />
         <Route path="/sales/new" element={<NewSalePage />} />
         <Route path="/sales/history" element={<SalesHistoryPage />} />
         <Route path="/reports" element={<ReportsPage />} />

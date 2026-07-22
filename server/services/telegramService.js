@@ -86,6 +86,29 @@ function getTelegramMessageText(eventType, payload = {}, settings = {}) {
         'Time:',
         formatDateTime(payload.timestamp || payload.createdAt),
       ].join('\n')
+    case 'product-added':
+      return [
+        '🆕 NEW PRODUCT ADDED',
+        '',
+        `Product: ${payload.productName}`,
+        `Category: ${payload.category}`,
+        `Buying Price: ${currency}${payload.buyingPrice}`,
+        `Selling Price: ${currency}${payload.sellingPrice}`,
+        `Initial Stock: ${payload.stock}`,
+        '',
+        `Date & Time: ${formatDateTime(payload.timestamp)}`,
+      ].join('\n')
+
+    case 'product-deleted':
+      return [
+        '🗑️ PRODUCT DELETED',
+        '',
+        `Product: ${payload.productName}`,
+        `Category: ${payload.category}`,
+        `Last Stock: ${payload.stock}`,
+        '',
+        `Date & Time: ${formatDateTime(payload.timestamp)}`,
+      ].join('\n')
     default:
       return ''
   }
@@ -161,6 +184,38 @@ async function sendDamageNotification(damage, product, settings = {}) {
   return sendTelegramMessage(text, settings)
 }
 
+async function sendProductAddedNotification(product, settings = {}) {
+  const text = getTelegramMessageText(
+    'product-added',
+    {
+      productName: product.name,
+      category: product.category,
+      buyingPrice: product.buyingPrice,
+      sellingPrice: product.sellingPrice,
+      stock: product.stockQuantity,
+      timestamp: new Date(),
+    },
+    settings
+  )
+
+  return sendTelegramMessage(text, settings)
+}
+
+async function sendProductDeletedNotification(product, settings = {}) {
+  const text = getTelegramMessageText(
+    'product-deleted',
+    {
+      productName: product.name,
+      category: product.category,
+      stock: product.stockQuantity,
+      timestamp: new Date(),
+    },
+    settings
+  )
+
+  return sendTelegramMessage(text, settings)
+}
+
 function shouldSendLowStockNotification(product, previousStock, state = {}) {
   const threshold = 10
   const currentStock = Number(product?.stockQuantity ?? 0)
@@ -195,5 +250,7 @@ module.exports = {
   sendLowStockNotification,
   sendStockUpdatedNotification,
   sendDamageNotification,
+  sendProductAddedNotification,
+  sendProductDeletedNotification,
   shouldSendLowStockNotification,
 }

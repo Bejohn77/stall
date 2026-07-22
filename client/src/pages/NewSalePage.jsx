@@ -115,6 +115,9 @@ export default function NewSalePage() {
   const updateLineItem = (id, field, value) => {
     setLineItems((current) => current.map((item) => {
       if (item.id !== id) return item
+      if (item.type === 'product' && field === 'unitPrice') {
+        return item
+      }
       const updatedItem = { ...item, [field]: Number(value || 0) }
       return { ...updatedItem, total: calculateLineTotal(updatedItem) }
     }))
@@ -402,7 +405,15 @@ export default function NewSalePage() {
                     </label>
                     <label className="text-sm font-medium">
                       Unit price
-                      <input type="number" min="0" value={item.unitPrice} onChange={(e) => updateLineItem(item.id, 'unitPrice', e.target.value)} className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 p-2 dark:border-slate-800 dark:bg-slate-900" />
+                      <input
+                        type="number"
+                        min="0"
+                        value={item.unitPrice}
+                        onChange={(e) => updateLineItem(item.id, 'unitPrice', e.target.value)}
+                        disabled={item.type === 'product'}
+                        readOnly={item.type === 'product'}
+                        className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 p-2 dark:border-slate-800 dark:bg-slate-900 disabled:cursor-not-allowed disabled:opacity-80"
+                      />
                     </label>
                     <label className="text-sm font-medium">
                       Discount
