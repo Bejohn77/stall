@@ -1,7 +1,7 @@
 const Product = require('../models/Product')
 const Sale = require('../models/Sale')
 const Setting = require('../models/Setting')
-const { sendSaleNotification } = require('../services/telegramService')
+const { sendSaleNotification, sendLowStockNotification, shouldSendLowStockNotification } = require('../services/telegramService')
 const { calculateInvoiceProfit, calculateInvoiceSummary, validateInvoicePayload } = require('../utils/invoice')
 const { getMode, getStore, createId } = require('../utils/store')
 
@@ -110,18 +110,37 @@ async function createSale(req, res, next) {
 
       store.sales.push(sale)
       const settings = store.settings
-      if (settings) {
-        const notification = await sendSaleNotification(sale, settings)
-        if (!notification.ok && !notification.skipped) {
-          console.warn('Telegram notification skipped after error:', notification.error)
+      const lowStockState = store.__telegramLowStockState || (store.__telegramLowStockState = {})
+      for (const update of inventoryUpdates) {
+        const previousStock = Number(update.product.stockQuantity + update.quantity)
+        const currentStock = Number(update.product.stockQuantity)
+        if (shouldSendLowStockNotification({ ...update.product, stockQuantity: currentStock }, previousStock, lowStockState)) {
+          void sendLowStockNotification(update.product, settings).catch((error) => {
+            console.warn('Low stock Telegram notification skipped after error:', error.message)
+          })
         }
+      }
+      if (settings) {
+        void sendSaleNotification(sale, settings).catch((error) => {
+          console.warn('Telegram notification skipped after error:', error.message)
+        })
       }
       return res.status(201).json(sale)
     }
 
+    const settings = await Setting.findOne()
+
     for (const update of inventoryUpdates) {
+      const previousStock = Number(update.product.stockQuantity)
       update.product.stockQuantity -= update.quantity
       await update.product.save()
+
+      const lowStockState = global.__telegramLowStockState || (global.__telegramLowStockState = {})
+      if (shouldSendLowStockNotification(update.product, previousStock, lowStockState)) {
+        void sendLowStockNotification(update.product, settings).catch((error) => {
+          console.warn('Low stock Telegram notification skipped after error:', error.message)
+        })
+      }
     }
 
     const invoiceNumber = await generateInvoiceNumber()
@@ -141,12 +160,10 @@ async function createSale(req, res, next) {
       change: summary.change,
     })
 
-    const settings = await Setting.findOne()
     if (settings) {
-      const notification = await sendSaleNotification(sale, settings)
-      if (!notification.ok && !notification.skipped) {
-        console.warn('Telegram notification skipped after error:', notification.error)
-      }
+      void sendSaleNotification(sale, settings).catch((error) => {
+        console.warn('Telegram notification skipped after error:', error.message)
+      })
     }
 
     res.status(201).json(sale)

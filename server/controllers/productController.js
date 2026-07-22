@@ -1,5 +1,6 @@
 const Product = require('../models/Product')
-const { sendLowStockNotification } = require('../services/telegramService')
+const Setting = require('../models/Setting')
+const { sendLowStockNotification, sendStockUpdatedNotification, shouldSendLowStockNotification } = require('../services/telegramService')
 const { getMode, getStore, createId, clone } = require('../utils/store')
 
 async function listProducts(req, res, next) {
@@ -44,8 +45,10 @@ async function createProduct(req, res, next) {
         updatedAt: new Date().toISOString(),
       }
       store.products.push(product)
+
+      const settings = store.settings
       if (product.stockQuantity <= 10) {
-        const notification = await sendLowStockNotification(product, store.settings)
+        const notification = await sendLowStockNotification(product, settings)
         if (!notification.ok && !notification.skipped) {
           console.warn('Low stock Telegram notification skipped after error:', notification.error)
         }
@@ -54,8 +57,8 @@ async function createProduct(req, res, next) {
     }
 
     const product = await Product.create(req.body)
+    const settings = await Setting.findOne()
     if (product.stockQuantity <= 10) {
-      const settings = await require('../models/Setting').findOne()
       const notification = await sendLowStockNotification(product, settings)
       if (!notification.ok && !notification.skipped) {
         console.warn('Low stock Telegram notification skipped after error:', notification.error)
@@ -73,18 +76,48 @@ async function updateProduct(req, res, next) {
       const store = getStore()
       const product = store.products.find((item) => item._id === req.params.id)
       if (!product) return res.status(404).json({ message: 'Product not found' })
-      Object.assign(product, { ...req.body, buyingPrice: Number(req.body.buyingPrice || product.buyingPrice), sellingPrice: Number(req.body.sellingPrice || product.sellingPrice), stockQuantity: Number(req.body.stockQuantity || product.stockQuantity), updatedAt: new Date().toISOString() })
+
+      const previousStock = Number(product.stockQuantity || 0)
+      const nextStock = Number(req.body.stockQuantity ?? product.stockQuantity)
+      const addedQuantity = Math.max(0, nextStock - previousStock)
+
+      Object.assign(product, { ...req.body, buyingPrice: Number(req.body.buyingPrice || product.buyingPrice), sellingPrice: Number(req.body.sellingPrice || product.sellingPrice), stockQuantity: nextStock, updatedAt: new Date().toISOString() })
+
+      const settings = store.settings
+      if (addedQuantity > 0) {
+        void sendStockUpdatedNotification(product, previousStock, addedQuantity, settings, req.body.updatedBy || 'Owner').catch((error) => {
+          console.warn('Stock update Telegram notification skipped after error:', error.message)
+        })
+      }
+
+      if (shouldSendLowStockNotification(product, previousStock, store.__telegramLowStockState || (store.__telegramLowStockState = {}))) {
+        void sendLowStockNotification(product, settings).catch((error) => {
+          console.warn('Low stock Telegram notification skipped after error:', error.message)
+        })
+      }
+
       return res.json(product)
     }
 
     const product = await Product.findByIdAndUpdate(req.params.id, req.body, { new: true })
     if (!product) return res.status(404).json({ message: 'Product not found' })
-    if (product.stockQuantity <= 10) {
-      const settings = await require('../models/Setting').findOne()
-      const notification = await sendLowStockNotification(product, settings)
-      if (!notification.ok && !notification.skipped) {
-        console.warn('Low stock Telegram notification skipped after error:', notification.error)
-      }
+
+    const previousStock = Number(product?.stockQuantity || 0)
+    const currentStock = Number(product.stockQuantity || 0)
+    const addedQuantity = Math.max(0, currentStock - previousStock)
+
+    const settings = await Setting.findOne()
+    if (addedQuantity > 0) {
+      void sendStockUpdatedNotification(product, previousStock, addedQuantity, settings, req.body.updatedBy || 'Owner').catch((error) => {
+        console.warn('Stock update Telegram notification skipped after error:', error.message)
+      })
+    }
+
+    const lowStockState = global.__telegramLowStockState || (global.__telegramLowStockState = {})
+    if (shouldSendLowStockNotification(product, previousStock, lowStockState)) {
+      void sendLowStockNotification(product, settings).catch((error) => {
+        console.warn('Low stock Telegram notification skipped after error:', error.message)
+      })
     }
     res.json(product)
   } catch (error) {

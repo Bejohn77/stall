@@ -1,5 +1,7 @@
 const Damage = require('../models/Damage')
 const Product = require('../models/Product')
+const Setting = require('../models/Setting')
+const { sendDamageNotification, sendLowStockNotification, shouldSendLowStockNotification } = require('../services/telegramService')
 const { getMode, getStore, createId } = require('../utils/store')
 
 function buildDamageReport(damages = []) {
@@ -89,6 +91,18 @@ async function createDamage(req, res, next) {
       }
       store.damages = [...(store.damages || []), damage]
       product.stockQuantity -= damageQuantity
+
+      const settings = store.settings
+      void sendDamageNotification(damage, product, settings).catch((error) => {
+        console.warn('Damage Telegram notification skipped after error:', error.message)
+      })
+
+      const lowStockState = store.__telegramLowStockState || (store.__telegramLowStockState = {})
+      if (shouldSendLowStockNotification(product, Number(product.stockQuantity + damageQuantity), lowStockState)) {
+        void sendLowStockNotification(product, settings).catch((error) => {
+          console.warn('Low stock Telegram notification skipped after error:', error.message)
+        })
+      }
       return res.status(201).json(damage)
     }
 
@@ -109,6 +123,18 @@ async function createDamage(req, res, next) {
 
     product.stockQuantity -= damageQuantity
     await product.save()
+
+    const settings = await Setting.findOne()
+    void sendDamageNotification(damage, product, settings).catch((error) => {
+      console.warn('Damage Telegram notification skipped after error:', error.message)
+    })
+
+    const lowStockState = global.__telegramLowStockState || (global.__telegramLowStockState = {})
+    if (shouldSendLowStockNotification(product, Number(product.stockQuantity + damageQuantity), lowStockState)) {
+      void sendLowStockNotification(product, settings).catch((error) => {
+        console.warn('Low stock Telegram notification skipped after error:', error.message)
+      })
+    }
     res.status(201).json(damage)
   } catch (error) {
     next(error)
