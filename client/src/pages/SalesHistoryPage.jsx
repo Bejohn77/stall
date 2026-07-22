@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import toast from 'react-hot-toast'
-import { FiPrinter, FiSearch, FiTrash2 } from 'react-icons/fi'
+import { FiDownload, FiPrinter, FiSearch, FiTrash2 } from 'react-icons/fi'
 import Topbar from '../components/Topbar'
 import api from '../services/api'
 import { formatCurrency, formatDate } from '../utils/formatters'
@@ -42,6 +42,77 @@ export default function SalesHistoryPage() {
     }
   }
 
+  const buildSummaryData = (mode) => {
+    const groups = new Map()
+
+    filteredSales.forEach((sale) => {
+      const createdAt = new Date(sale.createdAt)
+      const key = mode === 'monthly'
+        ? `${createdAt.getFullYear()}-${String(createdAt.getMonth() + 1).padStart(2, '0')}`
+        : `${createdAt.getFullYear()}-${String(createdAt.getMonth() + 1).padStart(2, '0')}-${String(createdAt.getDate()).padStart(2, '0')}`
+
+      const current = groups.get(key) || {
+        key,
+        invoices: 0,
+        items: 0,
+        sales: 0,
+        paid: 0,
+        due: 0,
+      }
+
+      current.invoices += 1
+      current.items += (sale.items || []).reduce((sum, item) => sum + Number(item.quantity || 0), 0)
+      current.sales += Number(sale.grandTotal || 0)
+      current.paid += Number(sale.paidAmount || 0)
+      current.due += Number(sale.dueAmount || 0)
+
+      groups.set(key, current)
+    })
+
+    return Array.from(groups.values()).sort((a, b) => a.key.localeCompare(b.key))
+  }
+
+  const exportSummary = (mode, format = 'csv') => {
+    const rows = buildSummaryData(mode)
+    const headers = mode === 'monthly'
+      ? ['Month', 'Invoices', 'Items Sold', 'Sales', 'Paid', 'Due']
+      : ['Date', 'Invoices', 'Items Sold', 'Sales', 'Paid', 'Due']
+
+    if (format === 'pdf') {
+      const printWindow = window.open('', '_blank', 'width=900,height=700')
+      if (!printWindow) return toast.error('Please allow pop-ups to print the report')
+
+      const bodyRows = rows.map((row) => `
+        <tr>
+          <td>${row.key}</td>
+          <td>${row.invoices}</td>
+          <td>${row.items}</td>
+          <td>${formatCurrency(row.sales)}</td>
+          <td>${formatCurrency(row.paid)}</td>
+          <td>${formatCurrency(row.due)}</td>
+        </tr>
+      `).join('')
+
+      printWindow.document.write(`<!DOCTYPE html><html><head><title>${mode === 'monthly' ? 'Monthly' : 'Daily'} Sales Summary</title><style>body{font-family:Arial,sans-serif;padding:24px;color:#0f172a}table{width:100%;border-collapse:collapse;margin-top:16px}th,td{padding:10px;border-bottom:1px solid #e2e8f0;text-align:left}h1,p{margin:0 0 8px}</style></head><body><h1>${mode === 'monthly' ? 'Monthly' : 'Daily'} Sales Summary</h1><p>${rows.length ? 'Exported from the current filtered history.' : 'No matching sales found.'}</p><table><thead><tr><th>${headers[0]}</th><th>${headers[1]}</th><th>${headers[2]}</th><th>${headers[3]}</th><th>${headers[4]}</th><th>${headers[5]}</th></tr></thead><tbody>${bodyRows}</tbody></table></body></html>`)
+      printWindow.document.close()
+      printWindow.focus()
+      printWindow.print()
+      return
+    }
+
+    const escapeValue = (value) => `"${String(value).replace(/"/g, '""')}"`
+    const csvRows = [headers, ...rows.map((row) => [row.key, row.invoices, row.items, row.sales, row.paid, row.due])]
+    const csv = csvRows.map((row) => row.map(escapeValue).join(',')).join('\n')
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `${mode === 'monthly' ? 'monthly' : 'daily'}-sales-summary.csv`
+    link.click()
+    URL.revokeObjectURL(url)
+    toast.success(`${mode === 'monthly' ? 'Monthly' : 'Daily'} summary exported`)
+  }
+
   const printInvoice = (sale) => {
     const printWindow = window.open('', '_blank', 'width=900,height=700')
     if (!printWindow) return toast.error('Please allow pop-ups to print the invoice')
@@ -75,6 +146,20 @@ export default function SalesHistoryPage() {
               <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search invoice, customer, or item" className="w-full border-0 bg-transparent outline-none" />
             </label>
             <input type="date" value={dateFilter} onChange={(e) => setDateFilter(e.target.value)} className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm dark:border-slate-800 dark:bg-slate-900" />
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <button onClick={() => exportSummary('daily', 'csv')} className="flex items-center gap-2 rounded-2xl border border-slate-200 px-3 py-2 text-sm">
+              <FiDownload /> Daily CSV
+            </button>
+            <button onClick={() => exportSummary('monthly', 'csv')} className="flex items-center gap-2 rounded-2xl border border-slate-200 px-3 py-2 text-sm">
+              <FiDownload /> Monthly CSV
+            </button>
+            <button onClick={() => exportSummary('daily', 'pdf')} className="flex items-center gap-2 rounded-2xl border border-slate-200 px-3 py-2 text-sm">
+              <FiPrinter /> Daily PDF
+            </button>
+            <button onClick={() => exportSummary('monthly', 'pdf')} className="flex items-center gap-2 rounded-2xl border border-slate-200 px-3 py-2 text-sm">
+              <FiPrinter /> Monthly PDF
+            </button>
           </div>
         </div>
 
