@@ -7,6 +7,7 @@ const { listDamages, createDamage, deleteDamage, getDamageReport } = require('..
 const { getReport } = require('../controllers/reportController')
 const { listServices, createService, updateService, deleteService, createServiceBill, listServiceBills } = require('../controllers/serviceController')
 const { getSettings, updateSettings, backupData, restoreData } = require('../controllers/settingController')
+const { verifyProductsPassword } = require('../controllers/authController')
 
 router.get('/dashboard', getDashboard)
 router.get('/products', listProducts)
@@ -31,5 +32,6 @@ router.get('/settings', getSettings)
 router.put('/settings', updateSettings)
 router.get('/settings/backup', backupData)
 router.post('/settings/restore', restoreData)
+router.post('/auth/verify-products-password', verifyProductsPassword)
 
 module.exports = router

@@ -1,37 +1,40 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { FiLock } from 'react-icons/fi'
 import toast from 'react-hot-toast'
-
-const STORAGE_KEY = 'stall-products-access'
-const DEFAULT_PASSWORD = import.meta.env.VITE_PRODUCTS_PASSWORD || 'stall2026'
+import api from '../services/api'
 
 export default function ProtectedRoute({ children }) {
   const [password, setPassword] = useState('')
-  const [isAuthenticated, setIsAuthenticated] = useState(() => {
-    if (typeof window === 'undefined') return false
-    return window.localStorage.getItem(STORAGE_KEY) === 'true'
-  })
+  const [isAuthenticated, setIsAuthenticated] = useState(false)
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
-  useEffect(() => {
-    if (isAuthenticated) {
-      window.localStorage.setItem(STORAGE_KEY, 'true')
-    } else {
-      window.localStorage.removeItem(STORAGE_KEY)
-    }
-  }, [isAuthenticated])
-
-  const handleSubmit = (event) => {
+  const handleSubmit = async (event) => {
     event.preventDefault()
 
-    if (password === DEFAULT_PASSWORD) {
-      setIsAuthenticated(true)
-      setPassword('')
-      toast.success('Access granted')
+    if (!password.trim()) {
+      toast.error('Please enter the password')
       return
     }
 
-    toast.error('Incorrect password')
-    setPassword('')
+    try {
+      setIsSubmitting(true)
+      const { data } = await api.post('/auth/verify-products-password', { password })
+
+      if (data.success) {
+        setIsAuthenticated(true)
+        setPassword('')
+        toast.success('Access granted')
+        return
+      }
+
+      toast.error('Incorrect password')
+      setPassword('')
+    } catch (error) {
+      toast.error('Could not verify password')
+      setPassword('')
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   if (isAuthenticated) {
@@ -62,9 +65,10 @@ export default function ProtectedRoute({ children }) {
           />
           <button
             type="submit"
-            className="w-full rounded-2xl bg-slate-900 px-4 py-3 font-medium text-white dark:bg-slate-800"
+            disabled={isSubmitting}
+            className="w-full rounded-2xl bg-slate-900 px-4 py-3 font-medium text-white disabled:opacity-70 dark:bg-slate-800"
           >
-            Unlock page
+            {isSubmitting ? 'Checking...' : 'Unlock page'}
           </button>
         </form>
       </div>
