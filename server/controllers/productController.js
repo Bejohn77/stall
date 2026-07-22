@@ -79,13 +79,14 @@ async function updateProduct(req, res, next) {
 
       const previousStock = Number(product.stockQuantity || 0)
       const nextStock = Number(req.body.stockQuantity ?? product.stockQuantity)
-      const addedQuantity = Math.max(0, nextStock - previousStock)
+      const updatedQuantity = nextStock - previousStock
 
       Object.assign(product, { ...req.body, buyingPrice: Number(req.body.buyingPrice || product.buyingPrice), sellingPrice: Number(req.body.sellingPrice || product.sellingPrice), stockQuantity: nextStock, updatedAt: new Date().toISOString() })
 
       const settings = store.settings
-      if (addedQuantity > 0) {
-        void sendStockUpdatedNotification(product, previousStock, addedQuantity, settings, req.body.updatedBy || 'Owner').catch((error) => {
+      if (updatedQuantity !== 0) {
+        const updateType = updatedQuantity > 0 ? 'Stock Added' : 'Stock Reduced'
+        void sendStockUpdatedNotification(product, previousStock, updatedQuantity, settings, req.body.updatedBy || 'Owner', updateType).catch((error) => {
           console.warn('Stock update Telegram notification skipped after error:', error.message)
         })
       }
@@ -99,16 +100,20 @@ async function updateProduct(req, res, next) {
       return res.json(product)
     }
 
-    const product = await Product.findByIdAndUpdate(req.params.id, req.body, { new: true })
+    const existingProduct = await Product.findById(req.params.id)
+    if (!existingProduct) return res.status(404).json({ message: 'Product not found' })
+
+    const previousStock = Number(existingProduct.stockQuantity || 0)
+    const nextStock = Number(req.body.stockQuantity ?? existingProduct.stockQuantity)
+    const updatedQuantity = nextStock - previousStock
+
+    const product = await Product.findByIdAndUpdate(req.params.id, { ...req.body, stockQuantity: nextStock }, { new: true })
     if (!product) return res.status(404).json({ message: 'Product not found' })
 
-    const previousStock = Number(product?.stockQuantity || 0)
-    const currentStock = Number(product.stockQuantity || 0)
-    const addedQuantity = Math.max(0, currentStock - previousStock)
-
     const settings = await Setting.findOne()
-    if (addedQuantity > 0) {
-      void sendStockUpdatedNotification(product, previousStock, addedQuantity, settings, req.body.updatedBy || 'Owner').catch((error) => {
+    if (updatedQuantity !== 0) {
+      const updateType = updatedQuantity > 0 ? 'Stock Added' : 'Stock Reduced'
+      void sendStockUpdatedNotification(product, previousStock, updatedQuantity, settings, req.body.updatedBy || 'Owner', updateType).catch((error) => {
         console.warn('Stock update Telegram notification skipped after error:', error.message)
       })
     }

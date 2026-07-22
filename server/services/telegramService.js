@@ -10,6 +10,24 @@ function formatDateTime(value = new Date()) {
   return new Date(value).toLocaleString('en-BD', { timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone })
 }
 
+function formatDate(value = new Date()) {
+  return new Date(value).toLocaleDateString('en-GB', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+    timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+  })
+}
+
+function formatTime(value = new Date()) {
+  return new Date(value).toLocaleTimeString('en-US', {
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+    timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+  })
+}
+
 function getTelegramMessageText(eventType, payload = {}, settings = {}) {
   const currency = settings.currency || '৳'
   switch (eventType) {
@@ -32,11 +50,14 @@ function getTelegramMessageText(eventType, payload = {}, settings = {}) {
         `Product: ${payload.productName}`,
         '',
         `Previous Stock: ${payload.previousStock}`,
-        `Added: +${payload.addedQuantity}`,
+        `Updated Quantity: ${payload.updatedQuantity > 0 ? `+${payload.updatedQuantity}` : payload.updatedQuantity}`,
         `Current Stock: ${payload.currentStock}`,
         '',
-        `Updated by: ${payload.updatedBy || 'Owner'}`,
-        `Date & Time: ${formatDateTime(payload.timestamp)}`,
+        `Update Type: ${payload.updateType || (payload.updatedQuantity > 0 ? 'Stock Added' : 'Stock Reduced')}`,
+        `Updated By: ${payload.updatedBy || 'Owner'}`,
+        '',
+        `Date: ${payload.date || formatDate(payload.timestamp)}`,
+        `Time: ${payload.time || formatTime(payload.timestamp)}`,
       ].join('\n')
     case 'product-damaged':
       return [
@@ -115,13 +136,14 @@ async function sendLowStockNotification(product, settings = {}) {
   return sendTelegramMessage(text, settings)
 }
 
-async function sendStockUpdatedNotification(product, previousStock, addedQuantity, settings = {}, updatedBy = 'Owner') {
+async function sendStockUpdatedNotification(product, previousStock, updatedQuantity, settings = {}, updatedBy = 'Owner', updateType = null) {
   const text = getTelegramMessageText('stock-updated', {
     productName: product.name,
     previousStock,
-    addedQuantity,
+    updatedQuantity,
     currentStock: product.stockQuantity,
     updatedBy,
+    updateType: updateType || (updatedQuantity > 0 ? 'Stock Added' : 'Stock Reduced'),
     timestamp: new Date(),
   }, settings)
   return sendTelegramMessage(text, settings)

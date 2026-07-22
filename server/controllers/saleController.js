@@ -1,7 +1,7 @@
 const Product = require('../models/Product')
 const Sale = require('../models/Sale')
 const Setting = require('../models/Setting')
-const { sendSaleNotification, sendLowStockNotification, shouldSendLowStockNotification } = require('../services/telegramService')
+const { sendSaleNotification, sendLowStockNotification, sendStockUpdatedNotification, shouldSendLowStockNotification } = require('../services/telegramService')
 const { calculateInvoiceProfit, calculateInvoiceSummary, validateInvoicePayload } = require('../utils/invoice')
 const { getMode, getStore, createId } = require('../utils/store')
 
@@ -105,7 +105,17 @@ async function createSale(req, res, next) {
       }
 
       for (const update of inventoryUpdates) {
-        update.product.stockQuantity -= update.quantity
+        const previousStock = Number(update.product.stockQuantity)
+        const nextStock = previousStock - update.quantity
+        update.product.stockQuantity = nextStock
+
+        const settings = store.settings
+        const updateType = 'Stock Reduced'
+        if (previousStock !== nextStock) {
+          void sendStockUpdatedNotification(update.product, previousStock, previousStock - nextStock, settings, 'Owner', updateType).catch((error) => {
+            console.warn('Stock update Telegram notification skipped after error:', error.message)
+          })
+        }
       }
 
       store.sales.push(sale)
@@ -132,13 +142,20 @@ async function createSale(req, res, next) {
 
     for (const update of inventoryUpdates) {
       const previousStock = Number(update.product.stockQuantity)
-      update.product.stockQuantity -= update.quantity
+      const nextStock = previousStock - update.quantity
+      update.product.stockQuantity = nextStock
       await update.product.save()
 
       const lowStockState = global.__telegramLowStockState || (global.__telegramLowStockState = {})
       if (shouldSendLowStockNotification(update.product, previousStock, lowStockState)) {
         void sendLowStockNotification(update.product, settings).catch((error) => {
           console.warn('Low stock Telegram notification skipped after error:', error.message)
+        })
+      }
+
+      if (previousStock !== nextStock) {
+        void sendStockUpdatedNotification(update.product, previousStock, previousStock - nextStock, settings, 'Owner', 'Stock Reduced').catch((error) => {
+          console.warn('Stock update Telegram notification skipped after error:', error.message)
         })
       }
     }

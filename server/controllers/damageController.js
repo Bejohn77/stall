@@ -1,7 +1,7 @@
 const Damage = require('../models/Damage')
 const Product = require('../models/Product')
 const Setting = require('../models/Setting')
-const { sendDamageNotification, sendLowStockNotification, shouldSendLowStockNotification } = require('../services/telegramService')
+const { sendDamageNotification, sendLowStockNotification, sendStockUpdatedNotification, shouldSendLowStockNotification } = require('../services/telegramService')
 const { getMode, getStore, createId } = require('../utils/store')
 
 function buildDamageReport(damages = []) {
@@ -97,6 +97,14 @@ async function createDamage(req, res, next) {
         console.warn('Damage Telegram notification skipped after error:', error.message)
       })
 
+      const previousStock = Number(product.stockQuantity + damageQuantity)
+      const nextStock = Number(product.stockQuantity)
+      if (previousStock !== nextStock) {
+        void sendStockUpdatedNotification(product, previousStock, previousStock - nextStock, settings, 'Owner', 'Stock Reduced').catch((error) => {
+          console.warn('Stock update Telegram notification skipped after error:', error.message)
+        })
+      }
+
       const lowStockState = store.__telegramLowStockState || (store.__telegramLowStockState = {})
       if (shouldSendLowStockNotification(product, Number(product.stockQuantity + damageQuantity), lowStockState)) {
         void sendLowStockNotification(product, settings).catch((error) => {
@@ -128,6 +136,14 @@ async function createDamage(req, res, next) {
     void sendDamageNotification(damage, product, settings).catch((error) => {
       console.warn('Damage Telegram notification skipped after error:', error.message)
     })
+
+    const previousStock = Number(product.stockQuantity + damageQuantity)
+    const nextStock = Number(product.stockQuantity)
+    if (previousStock !== nextStock) {
+      void sendStockUpdatedNotification(product, previousStock, previousStock - nextStock, settings, 'Owner', 'Stock Reduced').catch((error) => {
+        console.warn('Stock update Telegram notification skipped after error:', error.message)
+      })
+    }
 
     const lowStockState = global.__telegramLowStockState || (global.__telegramLowStockState = {})
     if (shouldSendLowStockNotification(product, Number(product.stockQuantity + damageQuantity), lowStockState)) {
