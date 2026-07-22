@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { BarChart, Bar, CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
+import { FiDownload } from 'react-icons/fi'
 import Topbar from '../components/Topbar'
 import api from '../services/api'
 import { formatCurrency } from '../utils/formatters'
@@ -16,6 +17,9 @@ export default function ReportsPage() {
   const [report, setReport] = useState(null)
   const [startDate, setStartDate] = useState('')
   const [endDate, setEndDate] = useState('')
+  const [damageReport, setDamageReport] = useState(null)
+  const [damageStartDate, setDamageStartDate] = useState('')
+  const [damageEndDate, setDamageEndDate] = useState('')
   const [loading, setLoading] = useState(true)
 
   const fetchReport = async (range = activeRange, from = startDate, to = endDate) => {
@@ -50,6 +54,35 @@ export default function ReportsPage() {
   }
 
   const customSearch = () => fetchReport('custom', startDate, endDate)
+
+  const fetchDamageReport = async (from = damageStartDate, to = damageEndDate) => {
+    const params = []
+    if (from) params.push(`from=${from}`)
+    if (to) params.push(`to=${to}`)
+    const query = params.length ? `?${params.join('&')}` : ''
+    const { data } = await api.get(`/damages/report${query}`)
+    setDamageReport(data)
+  }
+
+  useEffect(() => {
+    fetchDamageReport()
+  }, [])
+
+  const exportDamageCsv = () => {
+    if (!damageReport) return
+    const rows = [['Date', 'Quantity', 'Loss']]
+    damageReport.trend.forEach((item) => rows.push([item.name, item.quantity, item.loss]))
+    const csv = rows.map((row) => row.join(',')).join('\n')
+    const blob = new Blob([csv], { type: 'text/csv' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = 'damage-report.csv'
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  const exportDamagePdf = () => window.print()
 
   return (
     <div className="space-y-6">
@@ -120,6 +153,32 @@ export default function ReportsPage() {
                   </BarChart>
                 </ResponsiveContainer>
               </div>
+            </div>
+
+            <div className="mt-6 rounded-[24px] border border-slate-200 p-4 dark:border-slate-800">
+              <h4 className="mb-3 font-semibold">Damage Report</h4>
+              <div className="mb-4 flex flex-col gap-3 md:flex-row">
+                <input type="date" value={damageStartDate} onChange={(e) => setDamageStartDate(e.target.value)} className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2 dark:border-slate-800 dark:bg-slate-900" />
+                <input type="date" value={damageEndDate} onChange={(e) => setDamageEndDate(e.target.value)} className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2 dark:border-slate-800 dark:bg-slate-900" />
+                <button onClick={() => fetchDamageReport(damageStartDate, damageEndDate)} className="rounded-2xl bg-amber-600 px-4 py-2 text-white">Filter</button>
+                <button onClick={exportDamageCsv} className="flex items-center gap-2 rounded-2xl border border-slate-200 px-4 py-2 text-sm"><FiDownload /> Export CSV</button>
+                <button onClick={exportDamagePdf} className="rounded-2xl border border-slate-200 px-4 py-2 text-sm">Export PDF</button>
+              </div>
+              <div className="mb-4 grid gap-4 md:grid-cols-4">
+                <div className="rounded-[20px] bg-slate-50 p-4 dark:bg-slate-900"><p className="text-sm text-slate-500">Damaged Qty</p><p className="mt-2 text-xl font-semibold">{damageReport?.totalDamagedQuantity || 0}</p></div>
+                <div className="rounded-[20px] bg-slate-50 p-4 dark:bg-slate-900"><p className="text-sm text-slate-500">Financial Loss</p><p className="mt-2 text-xl font-semibold">{formatCurrency(damageReport?.totalFinancialLoss || 0)}</p></div>
+                <div className="rounded-[20px] bg-slate-50 p-4 dark:bg-slate-900"><p className="text-sm text-slate-500">Most Damaged</p><p className="mt-2 text-xl font-semibold">{damageReport?.mostDamagedProduct || '—'}</p></div>
+                <div className="rounded-[20px] bg-slate-50 p-4 dark:bg-slate-900"><p className="text-sm text-slate-500">Trend Days</p><p className="mt-2 text-xl font-semibold">{damageReport?.trend?.length || 0}</p></div>
+              </div>
+              <ResponsiveContainer width="100%" height={220}>
+                <BarChart data={damageReport?.trend || []}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="name" />
+                  <YAxis />
+                  <Tooltip />
+                  <Bar dataKey="quantity" fill="#f59e0b" radius={[10, 10, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
             </div>
 
             <div className="mt-6 rounded-[24px] border border-slate-200 p-4 dark:border-slate-800">

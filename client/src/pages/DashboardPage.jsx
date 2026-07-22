@@ -39,6 +39,9 @@ export default function DashboardPage() {
         <StatCard label="Monthly Profit" value={formatCurrency(dashboard.monthlyProfit)} hint="Profit from this month" accent="emerald" />
         <StatCard label="Total Products" value={dashboard.totalProducts} hint="Registered inventory" accent="indigo" />
         <StatCard label="Low Stock" value={dashboard.lowStockProducts} hint="Products that need restocking" accent="rose" />
+        <StatCard label="Today's Damaged Items" value={dashboard.damageStats?.todayDamagedItems || 0} hint="Items recorded damaged today" accent="amber" />
+        <StatCard label="Damage Cost Today" value={formatCurrency(dashboard.damageStats?.todayDamageCost || 0)} hint="Loss recorded today" accent="rose" />
+        <StatCard label="Monthly Damage Cost" value={formatCurrency(dashboard.damageStats?.monthlyDamageCost || 0)} hint="Loss recorded this month" accent="amber" />
       </div>
 
       <div className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-950">

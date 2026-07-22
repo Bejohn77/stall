@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom'
-import { FiHome, FiPackage, FiShoppingCart, FiClock, FiBarChart2, FiFileText, FiSettings } from 'react-icons/fi'
+import { FiHome, FiPackage, FiShoppingCart, FiClock, FiBarChart2, FiFileText, FiSettings, FiAlertTriangle } from 'react-icons/fi'
 
 const navItems = [
   { to: '/', label: 'Dashboard', icon: FiHome },
@@ -7,6 +7,7 @@ const navItems = [
   { to: '/sales/new', label: 'Sales & Services', icon: FiShoppingCart },
   { to: '/sales/history', label: 'Sales History', icon: FiClock },
   { to: '/reports', label: 'Reports', icon: FiBarChart2 },
+  { to: '/damages', label: 'Damaged Products', icon: FiAlertTriangle },
   { to: '/services/billing', label: 'Service Billing', icon: FiFileText },
   { to: '/settings', label: 'Settings', icon: FiSettings },
 ]
