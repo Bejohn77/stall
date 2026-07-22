@@ -113,6 +113,52 @@ export default function SalesHistoryPage() {
     toast.success(`${mode === 'monthly' ? 'Monthly' : 'Daily'} summary exported`)
   }
 
+  const exportSalesList = (format = 'csv') => {
+    const headers = ['Invoice', 'Customer', 'Items', 'Total', 'Payment', 'Date']
+    const rows = filteredSales.map((sale) => [
+      sale.invoiceNumber || '',
+      sale.customerName || 'Walk-in customer',
+      (sale.items || []).map((item) => `${item.name} ×${item.quantity}`).join(', '),
+      Number(sale.grandTotal || 0),
+      sale.paymentMethod || '',
+      formatDate(sale.createdAt),
+    ])
+
+    if (format === 'pdf') {
+      const printWindow = window.open('', '_blank', 'width=900,height=700')
+      if (!printWindow) return toast.error('Please allow pop-ups to print the report')
+
+      const bodyRows = rows.map((row) => `
+        <tr>
+          <td>${row[0]}</td>
+          <td>${row[1]}</td>
+          <td>${row[2]}</td>
+          <td>${formatCurrency(row[3])}</td>
+          <td>${row[4]}</td>
+          <td>${row[5]}</td>
+        </tr>
+      `).join('')
+
+      printWindow.document.write(`<!DOCTYPE html><html><head><title>Sales History</title><style>body{font-family:Arial,sans-serif;padding:24px;color:#0f172a}table{width:100%;border-collapse:collapse;margin-top:16px}th,td{padding:10px;border-bottom:1px solid #e2e8f0;text-align:left}h1,p{margin:0 0 8px}</style></head><body><h1>Sales History</h1><p>${filteredSales.length ? 'Exported from the current filtered sales history.' : 'No matching sales found.'}</p><table><thead><tr><th>${headers[0]}</th><th>${headers[1]}</th><th>${headers[2]}</th><th>${headers[3]}</th><th>${headers[4]}</th><th>${headers[5]}</th></tr></thead><tbody>${bodyRows}</tbody></table></body></html>`)
+      printWindow.document.close()
+      printWindow.focus()
+      printWindow.print()
+      return
+    }
+
+    const escapeValue = (value) => `"${String(value).replace(/"/g, '""')}"`
+    const csvRows = [headers, ...rows]
+    const csv = csvRows.map((row) => row.map(escapeValue).join(',')).join('\n')
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = 'sales-history.csv'
+    link.click()
+    URL.revokeObjectURL(url)
+    toast.success('Sales history exported as Excel/CSV')
+  }
+
   const printInvoice = (sale) => {
     const printWindow = window.open('', '_blank', 'width=900,height=700')
     if (!printWindow) return toast.error('Please allow pop-ups to print the invoice')
@@ -148,6 +194,12 @@ export default function SalesHistoryPage() {
             <input type="date" value={dateFilter} onChange={(e) => setDateFilter(e.target.value)} className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm dark:border-slate-800 dark:bg-slate-900" />
           </div>
           <div className="flex flex-wrap gap-2">
+            <button onClick={() => exportSalesList('csv')} className="flex items-center gap-2 rounded-2xl border border-slate-200 px-3 py-2 text-sm">
+              <FiDownload /> Export Excel
+            </button>
+            <button onClick={() => exportSalesList('pdf')} className="flex items-center gap-2 rounded-2xl border border-slate-200 px-3 py-2 text-sm">
+              <FiPrinter /> Export PDF
+            </button>
             <button onClick={() => exportSummary('daily', 'csv')} className="flex items-center gap-2 rounded-2xl border border-slate-200 px-3 py-2 text-sm">
               <FiDownload /> Daily CSV
             </button>
