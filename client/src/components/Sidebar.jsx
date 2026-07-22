@@ -34,7 +34,7 @@ export default function Sidebar() {
       </nav>
       <div className="mt-auto rounded-3xl bg-gradient-to-br from-indigo-600 to-violet-600 p-4 text-white shadow-xl">
         <p className="text-sm font-medium">Single owner workflow</p>
-        <p className="mt-1 text-sm text-indigo-100">Everything stays organized on one laptop.</p>
+        <p className="mt-1 text-sm text-indigo-100">Created By Bejohn</p>
       </div>
     </aside>
   )
