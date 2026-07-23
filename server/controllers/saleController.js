@@ -1,7 +1,7 @@
 const Product = require('../models/Product')
 const Sale = require('../models/Sale')
 const Setting = require('../models/Setting')
-const { sendSaleNotification, sendLowStockNotification, sendStockUpdatedNotification, shouldSendLowStockNotification } = require('../services/telegramService')
+const { sendSaleNotification, sendSaleDeletedNotification, sendLowStockNotification, sendStockUpdatedNotification, shouldSendLowStockNotification } = require('../services/telegramService')
 const { calculateInvoiceProfit, calculateInvoiceSummary, validateInvoicePayload } = require('../utils/invoice')
 const { getMode, getStore, createId } = require('../utils/store')
 
@@ -215,6 +215,12 @@ async function deleteSale(req, res, next) {
         }
       }
       store.sales = store.sales.filter((entry) => entry._id !== req.params.id)
+      const settings = store.settings
+      if (settings) {
+        void sendSaleDeletedNotification(sale, settings).catch((error) => {
+          console.warn('Sale deletion Telegram notification skipped after error:', error.message)
+        })
+      }
       return res.json({ message: 'Sale deleted' })
     }
 
@@ -232,6 +238,14 @@ async function deleteSale(req, res, next) {
     }
 
     await Sale.findByIdAndDelete(req.params.id)
+
+    const settings = await Setting.findOne()
+    if (settings) {
+      void sendSaleDeletedNotification(sale, settings).catch((error) => {
+        console.warn('Sale deletion Telegram notification skipped after error:', error.message)
+      })
+    }
+
     res.json({ message: 'Sale deleted' })
   } catch (error) {
     next(error)

@@ -86,6 +86,17 @@ function getTelegramMessageText(eventType, payload = {}, settings = {}) {
         'Time:',
         formatDateTime(payload.timestamp || payload.createdAt),
       ].join('\n')
+    case 'sale-deleted':
+      return [
+        '🗑️ SALE DELETED',
+        '',
+        `Invoice: ${payload.invoiceNumber}`,
+        `Customer: ${payload.customerName || 'N/A'}`,
+        `Total: ${currency}${payload.grandTotal || 0}`,
+        '',
+        'Deleted At:',
+        formatDateTime(payload.deletedAt || payload.timestamp || new Date()),
+      ].join('\n')
     case 'product-added':
       return [
         '🆕 NEW PRODUCT ADDED',
@@ -145,6 +156,16 @@ async function sendSaleNotification(sale, settings = {}) {
     profit: sale.profit,
     paymentMethod: sale.paymentMethod,
     createdAt: sale.createdAt,
+  }, settings)
+  return sendTelegramMessage(text, settings)
+}
+
+async function sendSaleDeletedNotification(sale, settings = {}) {
+  const text = getTelegramMessageText('sale-deleted', {
+    invoiceNumber: sale.invoiceNumber,
+    customerName: sale.customerName,
+    grandTotal: sale.grandTotal,
+    deletedAt: new Date(),
   }, settings)
   return sendTelegramMessage(text, settings)
 }
@@ -246,7 +267,9 @@ function shouldSendLowStockNotification(product, previousStock, state = {}) {
 }
 
 module.exports = {
+  getTelegramMessageText,
   sendSaleNotification,
+  sendSaleDeletedNotification,
   sendLowStockNotification,
   sendStockUpdatedNotification,
   sendDamageNotification,
