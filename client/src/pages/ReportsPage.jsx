@@ -12,9 +12,18 @@ const ranges = [
   { key: 'custom', label: 'Custom' },
 ]
 
+const emptyReportState = {
+  period: 'daily',
+  summary: { sales: 0, profit: 0, productsSold: 0 },
+  chartData: [{ name: 'No data', revenue: 0, profit: 0 }],
+  bestProducts: [],
+  serviceSummary: { totalServiceRevenue: 0, serviceBillCount: 0, serviceItemCount: 0, mostUsedService: '—' },
+  monthlySummary: { totalMonthlySalesProfit: 0, totalMonthlyServiceRevenue: 0, totalMonthlyCosts: 0, totalDamagedProductLoss: 0, totalMonthlyNetProfit: 0 },
+}
+
 export default function ReportsPage() {
   const [activeRange, setActiveRange] = useState('daily')
-  const [report, setReport] = useState(null)
+  const [report, setReport] = useState(emptyReportState)
   const [startDate, setStartDate] = useState('')
   const [endDate, setEndDate] = useState('')
   const [damageReport, setDamageReport] = useState(null)
@@ -24,9 +33,22 @@ export default function ReportsPage() {
 
   const fetchReport = async (range = activeRange, from = startDate, to = endDate) => {
     setLoading(true)
-    const { data } = await api.get(`/reports/${range}${range === 'custom' ? `?from=${from}&to=${to}` : ''}`)
-    setReport(data)
-    setLoading(false)
+    try {
+      const { data } = await api.get(`/reports/${range}${range === 'custom' ? `?from=${from}&to=${to}` : ''}`)
+      setReport({
+        ...emptyReportState,
+        ...data,
+        summary: { ...emptyReportState.summary, ...(data?.summary || {}) },
+        serviceSummary: { ...emptyReportState.serviceSummary, ...(data?.serviceSummary || {}) },
+        monthlySummary: { ...emptyReportState.monthlySummary, ...(data?.monthlySummary || {}) },
+        chartData: data?.chartData || emptyReportState.chartData,
+        bestProducts: data?.bestProducts || emptyReportState.bestProducts,
+      })
+    } catch (error) {
+      setReport(emptyReportState)
+    } finally {
+      setLoading(false)
+    }
   }
 
   useEffect(() => {

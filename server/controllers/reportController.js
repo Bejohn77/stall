@@ -99,7 +99,9 @@ function buildMonthlySummary(monthlySales = [], monthlyServiceBills = [], monthl
     const serviceItems = (sale.items || []).filter((item) => item.type === 'service')
     return sum + serviceItems.reduce((lineSum, item) => lineSum + calculateServiceLineRevenue(item), 0)
   }, 0)
-  const totalMonthlyServiceRevenue = serviceRevenueFromBills + serviceRevenueFromSales
+  const totalMonthlyServiceRevenue = Number.isFinite(serviceRevenueFromBills + serviceRevenueFromSales)
+    ? (serviceRevenueFromBills + serviceRevenueFromSales)
+    : 0
   const totalMonthlyCosts = monthlyCosts.reduce((sum, cost) => sum + Number(cost.amount || 0), 0)
   const totalDamagedProductLoss = damageEntries.reduce((sum, damage) => sum + Number(damage.quantity || 0) * Number(damage.costPrice || 0), 0)
   const totalMonthlyNetProfit = (totalMonthlySalesProfit + totalMonthlyServiceRevenue) - (totalMonthlyCosts + totalDamagedProductLoss)

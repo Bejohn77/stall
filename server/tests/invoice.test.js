@@ -70,3 +70,25 @@ test('custom service validation rejects incomplete entries', () => {
   assert.equal(result.ok, false)
   assert.match(result.message, /service name|quantity|unit price/i)
 })
+
+test('paid amount validation rejects missing or non-positive values', () => {
+  const missing = validateInvoicePayload({
+    items: [{ type: 'service', name: 'Repair', quantity: 1, unitPrice: 10 }],
+    paidAmount: null,
+  })
+  const zero = validateInvoicePayload({
+    items: [{ type: 'service', name: 'Repair', quantity: 1, unitPrice: 10 }],
+    paidAmount: 0,
+  })
+  const negative = validateInvoicePayload({
+    items: [{ type: 'service', name: 'Repair', quantity: 1, unitPrice: 10 }],
+    paidAmount: -5,
+  })
+
+  assert.equal(missing.ok, false)
+  assert.equal(missing.message, 'Paid amount is required before saving the invoice.')
+  assert.equal(zero.ok, false)
+  assert.equal(zero.message, 'Paid amount is required before saving the invoice.')
+  assert.equal(negative.ok, false)
+  assert.equal(negative.message, 'Paid amount is required before saving the invoice.')
+})

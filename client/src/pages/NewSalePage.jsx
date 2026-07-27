@@ -15,7 +15,7 @@ export default function NewSalePage() {
   const [paymentMethod, setPaymentMethod] = useState('Cash')
   const [customerName, setCustomerName] = useState('')
   const [customerPhone, setCustomerPhone] = useState('')
-  const [paidAmount, setPaidAmount] = useState(0)
+  const [paidAmount, setPaidAmount] = useState('')
   const [loading, setLoading] = useState(true)
   const [transactionLoading, setTransactionLoading] = useState(false)
   const [selectedProductId, setSelectedProductId] = useState('')
@@ -134,6 +134,15 @@ export default function NewSalePage() {
     setLineItems((current) => current.filter((item) => item.id !== id))
   }
 
+  const parsedPaidAmount = useMemo(() => {
+    if (paidAmount === '' || paidAmount === null || paidAmount === undefined) return 0
+    const numericValue = Number(paidAmount)
+    return Number.isFinite(numericValue) ? numericValue : 0
+  }, [paidAmount])
+
+  const hasValidPaidAmount = parsedPaidAmount > 0
+  const canSaveInvoice = lineItems.length > 0 && hasValidPaidAmount
+
   const summary = useMemo(() => {
     const items = lineItems.map((item) => {
       const lineTotal = calculateLineTotal(item)
@@ -144,7 +153,7 @@ export default function NewSalePage() {
     const discount = items.reduce((sum, item) => sum + Math.min(Number(item.discount || 0), (Number(item.quantity || 0) * Number(item.unitPrice || 0))), 0)
     const tax = items.reduce((sum, item) => sum + Number(item.tax || 0), 0)
     const grandTotal = Math.max(0, subtotal - discount + tax)
-    const paid = Number(paidAmount || 0)
+    const paid = parsedPaidAmount
 
     return {
       items,
@@ -156,7 +165,7 @@ export default function NewSalePage() {
       dueAmount: Math.max(0, grandTotal - paid),
       change: Math.max(0, paid - grandTotal),
     }
-  }, [lineItems, paidAmount])
+  }, [lineItems, parsedPaidAmount])
 
   const validateInvoiceItems = (items) => {
     for (const item of items) {
@@ -178,6 +187,10 @@ export default function NewSalePage() {
   const completeTransaction = async () => {
     if (!lineItems.length) return toast.error('Add at least one product or service before saving the bill')
 
+    if (!hasValidPaidAmount) {
+      return toast.error('Please enter the paid amount before saving the invoice.')
+    }
+
     const validationMessage = validateInvoiceItems(summary.items)
     if (validationMessage) return toast.error(validationMessage)
 
@@ -198,7 +211,7 @@ export default function NewSalePage() {
         customerName,
         customerPhone,
         paymentMethod,
-        paidAmount: Number(paidAmount || 0),
+        paidAmount: parsedPaidAmount,
       }
 
       const { data } = await api.post('/sales', payload)
@@ -206,12 +219,12 @@ export default function NewSalePage() {
       setLineItems([])
       setCustomerName('')
       setCustomerPhone('')
-      setPaidAmount(0)
+      setPaidAmount('')
       setPaymentMethod('Cash')
       setSearch('')
       const { data: updatedProducts } = await api.get('/products')
       setProducts(updatedProducts)
-      toast.success('Mixed invoice created successfully')
+      toast.success('Invoice created successfully')
     } catch (error) {
       toast.error(error.response?.data?.message || 'Invoice creation failed')
     } finally {
@@ -414,8 +427,11 @@ export default function NewSalePage() {
               </div>
               <label className="mb-3 block text-sm font-medium">
                 Paid amount
-                <input type="number" min="0" value={paidAmount} onChange={(e) => setPaidAmount(Number(e.target.value))} className="mt-2 w-full rounded-2xl border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-950" />
+                <input type="number" min="0" value={paidAmount} onChange={(e) => setPaidAmount(e.target.value)} className="mt-2 w-full rounded-2xl border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-950" />
               </label>
+              {lineItems.length > 0 && !hasValidPaidAmount ? (
+                <p className="mb-3 text-sm text-amber-600">Please enter the paid amount before saving the invoice.</p>
+              ) : null}
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between"><span>Subtotal</span><span>{formatCurrency(summary.subtotal)}</span></div>
                 <div className="flex justify-between"><span>Discount</span><span>-{formatCurrency(summary.discount)}</span></div>
@@ -427,8 +443,8 @@ export default function NewSalePage() {
             </div>
 
             <div className="mt-4 flex flex-wrap gap-3">
-              <button onClick={completeTransaction} disabled={transactionLoading} className="rounded-2xl bg-indigo-600 px-4 py-3 font-semibold text-white hover:bg-indigo-700 disabled:opacity-70">
-                {transactionLoading ? 'Saving...' : 'Save Mixed Invoice'}
+              <button onClick={completeTransaction} disabled={transactionLoading || !canSaveInvoice} className="rounded-2xl bg-indigo-600 px-4 py-3 font-semibold text-white hover:bg-indigo-700 disabled:opacity-70">
+                {transactionLoading ? 'Saving...' : 'Save Invoice'}
               </button>
               <button onClick={printInvoice} disabled={!invoice} className="flex items-center gap-2 rounded-2xl bg-slate-900 px-4 py-3 font-semibold text-white disabled:opacity-70 dark:bg-slate-800">
                 <FiPrinter /> Print Invoice

@@ -91,6 +91,21 @@ function validateInvoicePayload(payload) {
     }
   }
 
+  const rawPaidAmount = payload?.paidAmount
+  let normalizedPaidAmount = null
+
+  if (rawPaidAmount === '' || rawPaidAmount === null || rawPaidAmount === undefined) {
+    normalizedPaidAmount = null
+  } else if (typeof rawPaidAmount === 'string' && rawPaidAmount.trim() === '') {
+    normalizedPaidAmount = null
+  } else {
+    normalizedPaidAmount = Number(rawPaidAmount)
+  }
+
+  if (normalizedPaidAmount === null || Number.isNaN(normalizedPaidAmount) || normalizedPaidAmount <= 0) {
+    return { ok: false, message: 'Paid amount is required before saving the invoice.' }
+  }
+
   return { ok: true }
 }
 

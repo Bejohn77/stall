@@ -25,7 +25,7 @@ async function createSale(req, res, next) {
     const { items = [], customerName = '', customerPhone = '', paymentMethod = 'Cash', paidAmount = 0 } = req.body
 
     const validation = validateInvoicePayload({ items, customerName, customerPhone, paymentMethod, paidAmount })
-    if (!validation.ok) return res.status(400).json({ message: validation.message })
+    if (!validation.ok) return res.status(400).json({ success: false, message: validation.message })
 
     const normalizedItems = []
     const inventoryUpdates = []

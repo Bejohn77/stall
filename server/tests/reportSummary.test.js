@@ -27,3 +27,11 @@ test('monthly summary includes service revenue from invoice service items', () =
 
   assert.equal(summary.totalMonthlyServiceRevenue, 200)
 })
+
+test('monthly summary defaults service revenue to zero for empty data', () => {
+  const summary = buildMonthlySummary([], [], [], [])
+
+  assert.equal(summary.totalMonthlyServiceRevenue, 0)
+  assert.equal(summary.totalMonthlySalesProfit, 0)
+  assert.equal(summary.totalMonthlyNetProfit, 0)
+})
