@@ -18,7 +18,7 @@ export default function Sidebar() {
     <aside className="flex h-screen w-72 flex-col border-r border-slate-200 bg-white/80 p-6 shadow-sm backdrop-blur dark:border-slate-800 dark:bg-slate-950/80 lg:flex">
       <div className="mb-10">
         <p className="text-sm font-semibold uppercase tracking-[0.32em] text-slate-400">Stall Manager</p>
-        <h2 className="mt-2 text-2xl font-semibold text-slate-900 dark:text-white">Modern POS</h2>
+        <h2 className="mt-2 text-2xl font-semibold text-slate-900 dark:text-white">Progga computer</h2>
       </div>
       <nav className="space-y-2">
         {navItems.map(({ to, label, icon: Icon }) => (
@@ -35,8 +35,8 @@ export default function Sidebar() {
         ))}
       </nav>
       <div className="mt-auto rounded-3xl bg-gradient-to-br from-indigo-600 to-violet-600 p-4 text-white shadow-xl">
-        <p className="text-sm font-medium">Single owner workflow</p>
-        <b className="mt-1 text-sm text-indigo-100">Created By Bejohn</b>
+        <p className="text-sm font-medium">Created By Bejohn</p>
+        <p className="mt-1 text-sm text-indigo-100">Contract info: 01864918438</p>
       </div>
     </aside>
   )

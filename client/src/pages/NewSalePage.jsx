@@ -21,6 +21,7 @@ export default function NewSalePage() {
   const [productQuantity, setProductQuantity] = useState(1)
   const [serviceForm, setServiceForm] = useState({ name: '', description: '', quantity: 1, unitPrice: '', discount: '', tax: '' })
   const [invoice, setInvoice] = useState(null)
+  const [activeBillingView, setActiveBillingView] = useState('products')
 
   useEffect(() => {
     const loadCatalog = async () => {
@@ -283,85 +284,106 @@ export default function NewSalePage() {
       <div className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
         <div className="space-y-6">
           <div className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-950">
-            <div className="mb-4 flex items-center justify-between">
+            <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
               <div>
-                <h3 className="text-lg font-semibold">Products</h3>
-                <p className="text-sm text-slate-500">Select products to add to the mixed bill</p>
+                <h3 className="text-lg font-semibold">Sales & Service Billing</h3>
+                <p className="text-sm text-slate-500">Switch between product sales and manual service entries without losing your current invoice</p>
+              </div>
+              <div className="flex rounded-full border border-slate-200 p-1 dark:border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setActiveBillingView('products')}
+                  className={`rounded-full px-3 py-1.5 text-sm font-medium transition ${activeBillingView === 'products' ? 'bg-slate-900 text-white dark:bg-slate-700' : 'text-slate-600 dark:text-slate-300'}`}
+                >
+                  Products
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveBillingView('services')}
+                  className={`rounded-full px-3 py-1.5 text-sm font-medium transition ${activeBillingView === 'services' ? 'bg-slate-900 text-white dark:bg-slate-700' : 'text-slate-600 dark:text-slate-300'}`}
+                >
+                  Service Billing
+                </button>
               </div>
             </div>
-            <label className="mb-4 flex items-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-500 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-400">
-              <FiSearch />
-              <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search by name or category" className="w-full border-0 bg-transparent outline-none" />
-            </label>
-            {loading ? (
-              <div className="space-y-2">{[...Array(4)].map((_, i) => <div key={i} className="h-14 animate-pulse rounded-2xl bg-slate-200 dark:bg-slate-800" />)}</div>
-            ) : (
-              <div className="space-y-2">
-                {filteredProducts.map((product) => (
-                  <button key={product._id} onClick={() => {
-                    setSelectedProductId(product._id)
-                    addProductItem(product)
-                  }} className={`flex w-full items-center justify-between rounded-2xl border px-3 py-3 text-left transition ${selectedProductId === product._id ? 'border-indigo-500 bg-indigo-50 dark:border-indigo-400 dark:bg-indigo-950/40' : 'border-slate-200 dark:border-slate-800'}`}>
-                    <div className="min-w-0">
-                      <p className="truncate font-semibold">{product.name}</p>
-                      <p className="text-sm text-slate-500">{product.category}</p>
-                    </div>
-                    <div className="ml-3 flex shrink-0 items-center gap-2 text-sm">
-                      <span className="font-medium text-slate-700 dark:text-slate-300">{formatCurrency(product.sellingPrice)}</span>
-                      <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${product.stockQuantity <= 0 ? 'bg-rose-100 text-rose-600' : 'bg-emerald-100 text-emerald-600'}`}>
-                        {product.stockQuantity <= 0 ? 'Out' : `${product.stockQuantity} left`}
-                      </span>
-                    </div>
+
+            {activeBillingView === 'products' ? (
+              <>
+                <label className="mb-4 flex items-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-500 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-400">
+                  <FiSearch />
+                  <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search by name or category" className="w-full border-0 bg-transparent outline-none" />
+                </label>
+                {loading ? (
+                  <div className="space-y-2">{[...Array(4)].map((_, i) => <div key={i} className="h-14 animate-pulse rounded-2xl bg-slate-200 dark:bg-slate-800" />)}</div>
+                ) : (
+                  <div className="max-h-[420px] space-y-2 overflow-y-auto pr-1">
+                    {filteredProducts.map((product) => (
+                      <button key={product._id} onClick={() => {
+                        setSelectedProductId(product._id)
+                        addProductItem(product)
+                      }} className={`flex w-full items-center justify-between rounded-2xl border px-3 py-3 text-left transition ${selectedProductId === product._id ? 'border-indigo-500 bg-indigo-50 dark:border-indigo-400 dark:bg-indigo-950/40' : 'border-slate-200 dark:border-slate-800'}`}>
+                        <div className="min-w-0">
+                          <p className="truncate font-semibold">{product.name}</p>
+                          <p className="text-sm text-slate-500">{product.category}</p>
+                        </div>
+                        <div className="ml-3 flex shrink-0 items-center gap-2 text-sm">
+                          <span className="font-medium text-slate-700 dark:text-slate-300">{formatCurrency(product.sellingPrice)}</span>
+                          <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${product.stockQuantity <= 0 ? 'bg-rose-100 text-rose-600' : 'bg-emerald-100 text-emerald-600'}`}>
+                            {product.stockQuantity <= 0 ? 'Out' : `${product.stockQuantity} left`}
+                          </span>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                <div className="mt-5 rounded-[24px] border border-slate-200 p-4 dark:border-slate-800">
+                  <label className="block text-sm font-medium">
+                    Quantity
+                    <input type="number" min="1" value={productQuantity} onChange={(e) => setProductQuantity(Number(e.target.value))} className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 p-3 dark:border-slate-800 dark:bg-slate-900" />
+                  </label>
+                  <button type="button" onClick={addProductItem} className="mt-4 flex items-center gap-2 rounded-2xl bg-slate-900 px-4 py-2.5 font-medium text-white dark:bg-slate-800">
+                    <FiPlus /> Add Product Line
                   </button>
-                ))}
+                </div>
+              </>
+            ) : (
+              <div className="space-y-4">
+                <div>
+                  <h4 className="text-base font-semibold">Custom Services</h4>
+                  <p className="text-sm text-slate-500">Add any service manually with its own quantity, price, discount, and tax</p>
+                </div>
+                <label className="block text-sm font-medium">
+                  Service name
+                  <input value={serviceForm.name} onChange={(e) => setServiceForm((current) => ({ ...current, name: e.target.value }))} className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 p-3 dark:border-slate-800 dark:bg-slate-900" placeholder="e.g. Repair, Delivery, Setup" />
+                </label>
+                <label className="block text-sm font-medium">
+                  Description (optional)
+                  <textarea value={serviceForm.description} onChange={(e) => setServiceForm((current) => ({ ...current, description: e.target.value }))} className="mt-2 min-h-24 w-full rounded-2xl border border-slate-200 bg-slate-50 p-3 dark:border-slate-800 dark:bg-slate-900" placeholder="Describe the service" />
+                </label>
+                <div className="grid gap-3 md:grid-cols-2">
+                  <label className="block text-sm font-medium">
+                    Quantity / hours
+                    <input type="number" min="1" value={serviceForm.quantity} onChange={(e) => setServiceForm((current) => ({ ...current, quantity: Number(e.target.value) }))} className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 p-3 dark:border-slate-800 dark:bg-slate-900" />
+                  </label>
+                  <label className="block text-sm font-medium">
+                    Unit price
+                    <input type="number" min="0" value={serviceForm.unitPrice} onChange={(e) => setServiceForm((current) => ({ ...current, unitPrice: e.target.value }))} className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 p-3 dark:border-slate-800 dark:bg-slate-900" />
+                  </label>
+                  <label className="block text-sm font-medium">
+                    Discount
+                    <input type="number" min="0" value={serviceForm.discount} onChange={(e) => setServiceForm((current) => ({ ...current, discount: e.target.value }))} className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 p-3 dark:border-slate-800 dark:bg-slate-900" />
+                  </label>
+                  <label className="block text-sm font-medium">
+                    Tax
+                    <input type="number" min="0" value={serviceForm.tax} onChange={(e) => setServiceForm((current) => ({ ...current, tax: e.target.value }))} className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 p-3 dark:border-slate-800 dark:bg-slate-900" />
+                  </label>
+                </div>
+                <button type="button" onClick={addServiceItem} className="flex items-center gap-2 rounded-2xl bg-slate-900 px-4 py-2.5 font-medium text-white dark:bg-slate-800">
+                  <FiPlus /> Add Service Line
+                </button>
               </div>
             )}
-
-            <div className="mt-5 rounded-[24px] border border-slate-200 p-4 dark:border-slate-800">
-              <label className="block text-sm font-medium">
-                Quantity
-                <input type="number" min="1" value={productQuantity} onChange={(e) => setProductQuantity(Number(e.target.value))} className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 p-3 dark:border-slate-800 dark:bg-slate-900" />
-              </label>
-              <button onClick={addProductItem} className="mt-4 flex items-center gap-2 rounded-2xl bg-slate-900 px-4 py-2.5 font-medium text-white dark:bg-slate-800">
-                <FiPlus /> Add Product Line
-              </button>
-            </div>
-          </div>
-
-          <div className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-950">
-            <div className="mb-4">
-              <h3 className="text-lg font-semibold">Custom Services</h3>
-              <p className="text-sm text-slate-500">Add any service manually with its own quantity, price, discount, and tax</p>
-            </div>
-            <label className="block text-sm font-medium">
-              Service name
-              <input value={serviceForm.name} onChange={(e) => setServiceForm((current) => ({ ...current, name: e.target.value }))} className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 p-3 dark:border-slate-800 dark:bg-slate-900" placeholder="e.g. Repair, Delivery, Setup" />
-            </label>
-            <label className="mt-4 block text-sm font-medium">
-              Description (optional)
-              <textarea value={serviceForm.description} onChange={(e) => setServiceForm((current) => ({ ...current, description: e.target.value }))} className="mt-2 min-h-24 w-full rounded-2xl border border-slate-200 bg-slate-50 p-3 dark:border-slate-800 dark:bg-slate-900" placeholder="Describe the service" />
-            </label>
-            <div className="mt-4 grid gap-3 md:grid-cols-2">
-              <label className="block text-sm font-medium">
-                Quantity / hours
-                <input type="number" min="1" value={serviceForm.quantity} onChange={(e) => setServiceForm((current) => ({ ...current, quantity: Number(e.target.value) }))} className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 p-3 dark:border-slate-800 dark:bg-slate-900" />
-              </label>
-              <label className="block text-sm font-medium">
-                Unit price
-                <input type="number" min="0" value={serviceForm.unitPrice} onChange={(e) => setServiceForm((current) => ({ ...current, unitPrice: e.target.value }))} className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 p-3 dark:border-slate-800 dark:bg-slate-900" />
-              </label>
-              <label className="block text-sm font-medium">
-                Discount
-                <input type="number" min="0" value={serviceForm.discount} onChange={(e) => setServiceForm((current) => ({ ...current, discount: e.target.value }))} className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 p-3 dark:border-slate-800 dark:bg-slate-900" />
-              </label>
-              <label className="block text-sm font-medium">
-                Tax
-                <input type="number" min="0" value={serviceForm.tax} onChange={(e) => setServiceForm((current) => ({ ...current, tax: e.target.value }))} className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 p-3 dark:border-slate-800 dark:bg-slate-900" />
-              </label>
-            </div>
-            <button onClick={addServiceItem} className="mt-4 flex items-center gap-2 rounded-2xl bg-slate-900 px-4 py-2.5 font-medium text-white dark:bg-slate-800">
-              <FiPlus /> Add Service Line
-            </button>
           </div>
         </div>
 

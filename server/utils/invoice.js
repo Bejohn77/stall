@@ -66,6 +66,11 @@ function validateInvoicePayload(payload) {
     return { ok: false, message: 'Add at least one product or service item to the invoice.' }
   }
 
+  const hasSupportedItems = items.some((item) => item?.type === 'service' || item?.type === 'product')
+  if (!hasSupportedItems) {
+    return { ok: false, message: 'Add at least one product or service item to the invoice.' }
+  }
+
   for (const item of items) {
     if (item.type === 'service') {
       const name = `${item.name || ''}`.trim()

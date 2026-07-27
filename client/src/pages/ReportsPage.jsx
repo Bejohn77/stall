@@ -122,7 +122,8 @@ export default function ReportsPage() {
                   </div>
                 </div>
                 <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-                  <div className="rounded-[20px] bg-slate-50 p-4 dark:bg-slate-900"><p className="text-sm text-slate-500">Total Monthly Sales</p><p className="mt-2 text-xl font-semibold">{formatCurrency(report.monthlySummary?.totalMonthlySales || 0)}</p></div>
+                  <div className="rounded-[20px] bg-slate-50 p-4 dark:bg-slate-900"><p className="text-sm text-slate-500">Monthly Sales Profit</p><p className="mt-2 text-xl font-semibold">{formatCurrency(report.monthlySummary?.totalMonthlySalesProfit || 0)}</p></div>
+                  <div className="rounded-[20px] bg-slate-50 p-4 dark:bg-slate-900"><p className="text-sm text-slate-500">Monthly Service Revenue</p><p className="mt-2 text-xl font-semibold">{formatCurrency(report.monthlySummary?.totalMonthlyServiceRevenue || 0)}</p></div>
                   <div className="rounded-[20px] bg-slate-50 p-4 dark:bg-slate-900"><p className="text-sm text-slate-500">Total Monthly Costs</p><p className="mt-2 text-xl font-semibold">{formatCurrency(report.monthlySummary?.totalMonthlyCosts || 0)}</p></div>
                   <div className="rounded-[20px] bg-slate-50 p-4 dark:bg-slate-900"><p className="text-sm text-slate-500">Total Damaged Product Loss</p><p className="mt-2 text-xl font-semibold">{formatCurrency(report.monthlySummary?.totalDamagedProductLoss || 0)}</p></div>
                   <div className="rounded-[20px] bg-slate-50 p-4 dark:bg-slate-900"><p className="text-sm text-slate-500">Total Monthly Net Profit</p><p className="mt-2 text-xl font-semibold">{formatCurrency(report.monthlySummary?.totalMonthlyNetProfit || 0)}</p></div>

@@ -72,7 +72,8 @@ async function getDashboard(req, res, next) {
       const monthlySalesValue = monthlySales.reduce((sum, sale) => sum + sale.grandTotal, 0)
       const monthlyProfitValue = monthlySales.reduce((sum, sale) => sum + sale.profit, 0)
       const monthlyCostValue = monthlyCosts.reduce((sum, cost) => sum + Number(cost.amount || 0), 0)
-      const netProfitValue = monthlySalesValue - monthlyCostValue
+      const monthlyDamageValue = monthlyDamages.reduce((sum, damage) => sum + Number(damage.totalLoss || 0), 0)
+      const netProfitValue = monthlySalesValue - (monthlyCostValue + monthlyDamageValue)
 
       return res.json({
         todaySales: todaySalesValue,
@@ -127,7 +128,8 @@ async function getDashboard(req, res, next) {
     const monthlySalesValue = monthlySales.reduce((sum, sale) => sum + sale.grandTotal, 0)
     const monthlyProfitValue = monthlySales.reduce((sum, sale) => sum + sale.profit, 0)
     const monthlyCostValue = monthlyCosts.reduce((sum, cost) => sum + Number(cost.amount || 0), 0)
-    const netProfitValue = monthlySalesValue - monthlyCostValue
+    const monthlyDamageValue = monthlyDamages.reduce((sum, damage) => sum + Number(damage.totalLoss || 0), 0)
+    const netProfitValue = monthlySalesValue - (monthlyCostValue + monthlyDamageValue)
 
     const dailySalesChart = [
       { name: 'Mon', sales: 3200 },
