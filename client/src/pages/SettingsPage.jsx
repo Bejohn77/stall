@@ -6,7 +6,7 @@ import api from '../services/api'
 
 export default function SettingsPage() {
   const [settings, setSettings] = useState(null)
-  const { register, handleSubmit, reset } = useForm()
+  const { register, handleSubmit, reset, formState: { errors } } = useForm()
 
   const fetchSettings = async () => {
     const { data } = await api.get('/settings')
@@ -19,8 +19,25 @@ export default function SettingsPage() {
   }, [reset])
 
   const onSubmit = async (values) => {
+    const payload = {
+      ...values,
+      storeName: `${values.storeName || ''}`.trim(),
+      phone: `${values.phone || ''}`.trim(),
+      address: `${values.address || ''}`.trim(),
+    }
+
+    if (!payload.storeName) {
+      toast.error('Shop Name is required')
+      return
+    }
+
+    if (!payload.phone) {
+      toast.error('Shop Phone Number is required')
+      return
+    }
+
     try {
-      await api.put('/settings', values)
+      await api.put('/settings', payload)
       toast.success('Settings updated')
     } catch {
       toast.error('Failed to update settings')
@@ -56,9 +73,20 @@ export default function SettingsPage() {
       <Topbar title="Settings" subtitle="Control store preferences and Telegram alerts" />
       <div className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-950">
         <form onSubmit={handleSubmit(onSubmit)} className="grid gap-4 md:grid-cols-2">
-          <input {...register('storeName')} placeholder="Store Name" className="rounded-2xl border border-slate-200 p-3 dark:border-slate-800 dark:bg-slate-900" />
-          <input {...register('phone')} placeholder="Phone" className="rounded-2xl border border-slate-200 p-3 dark:border-slate-800 dark:bg-slate-900" />
-          <input {...register('address')} placeholder="Address" className="rounded-2xl border border-slate-200 p-3 md:col-span-2 dark:border-slate-800 dark:bg-slate-900" />
+          <div className="md:col-span-2">
+            <label className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300">Shop Name *</label>
+            <input {...register('storeName', { required: 'Shop Name is required', validate: (value) => `${value || ''}`.trim() !== '' || 'Shop Name is required' })} placeholder="Shop Name" className={`w-full rounded-2xl border p-3 dark:border-slate-800 dark:bg-slate-900 ${errors.storeName ? 'border-rose-400' : 'border-slate-200'}`} />
+            {errors.storeName ? <p className="mt-1 text-sm text-rose-500">{errors.storeName.message}</p> : null}
+          </div>
+          <div>
+            <label className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300">Shop Phone Number *</label>
+            <input {...register('phone', { required: 'Shop Phone Number is required', validate: (value) => `${value || ''}`.trim() !== '' || 'Shop Phone Number is required' })} placeholder="Shop Phone Number" className={`w-full rounded-2xl border p-3 dark:border-slate-800 dark:bg-slate-900 ${errors.phone ? 'border-rose-400' : 'border-slate-200'}`} />
+            {errors.phone ? <p className="mt-1 text-sm text-rose-500">{errors.phone.message}</p> : null}
+          </div>
+          <div>
+            <label className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300">Shop Address</label>
+            <input {...register('address')} placeholder="Shop Address" className="w-full rounded-2xl border border-slate-200 p-3 dark:border-slate-800 dark:bg-slate-900" />
+          </div>
           <input {...register('currency')} placeholder="Currency" className="rounded-2xl border border-slate-200 p-3 dark:border-slate-800 dark:bg-slate-900" />
           <select {...register('theme')} className="rounded-2xl border border-slate-200 p-3 dark:border-slate-800 dark:bg-slate-900">
             <option value="light">Light</option>

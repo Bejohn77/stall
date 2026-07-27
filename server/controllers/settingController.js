@@ -17,15 +17,25 @@ async function getSettings(req, res, next) {
 
 async function updateSettings(req, res, next) {
   try {
+    const nextSettings = {
+      ...req.body,
+      storeName: `${req.body?.storeName || ''}`.trim(),
+      phone: `${req.body?.phone || ''}`.trim(),
+      address: `${req.body?.address || ''}`.trim(),
+    }
+
+    if (!nextSettings.storeName) return res.status(400).json({ message: 'Shop Name is required' })
+    if (!nextSettings.phone) return res.status(400).json({ message: 'Shop Phone Number is required' })
+
     if (getMode() === 'memory') {
       const store = getStore()
-      store.settings = { ...store.settings, ...req.body }
+      store.settings = { ...store.settings, ...nextSettings }
       return res.json(store.settings)
     }
 
     let settings = await Setting.findOne()
     if (!settings) settings = await Setting.create({})
-    Object.assign(settings, req.body)
+    Object.assign(settings, nextSettings)
     await settings.save()
     res.json(settings)
   } catch (error) {

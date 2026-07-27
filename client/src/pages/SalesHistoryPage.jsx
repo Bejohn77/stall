@@ -4,12 +4,14 @@ import { FiDownload, FiPrinter, FiSearch, FiTrash2 } from 'react-icons/fi'
 import Topbar from '../components/Topbar'
 import api from '../services/api'
 import { formatCurrency, formatDate } from '../utils/formatters'
+import { buildInvoicePrintHtml } from '../utils/printInvoice'
 
 export default function SalesHistoryPage() {
   const [sales, setSales] = useState([])
   const [search, setSearch] = useState('')
   const [dateFilter, setDateFilter] = useState('')
   const [loading, setLoading] = useState(true)
+  const [settings, setSettings] = useState({ storeName: '', address: '', phone: '' })
 
   const fetchSales = async () => {
     setLoading(true)
@@ -20,6 +22,19 @@ export default function SalesHistoryPage() {
 
   useEffect(() => {
     fetchSales()
+  }, [])
+
+  useEffect(() => {
+    const loadSettings = async () => {
+      try {
+        const { data } = await api.get('/settings')
+        setSettings(data || {})
+      } catch {
+        setSettings({ storeName: '', address: '', phone: '' })
+      }
+    }
+
+    loadSettings()
   }, [])
 
   const filteredSales = useMemo(() => {
@@ -163,19 +178,11 @@ export default function SalesHistoryPage() {
     const printWindow = window.open('', '_blank', 'width=900,height=700')
     if (!printWindow) return toast.error('Please allow pop-ups to print the invoice')
 
-    const rows = (sale.items || []).map((item) => `
-      <tr>
-        <td>${item.type === 'product' ? 'Product' : 'Service'}</td>
-        <td>${item.name}</td>
-        <td>${item.quantity}</td>
-        <td>${formatCurrency(item.unitPrice || 0)}</td>
-        <td>${formatCurrency(item.discount || 0)}</td>
-        <td>${formatCurrency(item.tax || 0)}</td>
-        <td>${formatCurrency(item.total || 0)}</td>
-      </tr>
-    `).join('')
-
-    printWindow.document.write(`<!DOCTYPE html><html><head><title>${sale.invoiceNumber}</title><style>body{font-family:Arial,sans-serif;padding:24px;color:#0f172a}table{width:100%;border-collapse:collapse;margin-top:16px}th,td{padding:10px;border-bottom:1px solid #e2e8f0;text-align:left}h1,p{margin:0 0 8px}</style></head><body><h1>Invoice</h1><p><strong>${sale.invoiceNumber}</strong></p><p>${sale.customerName || 'Walk-in customer'}</p><p>${sale.customerPhone || ''}</p><p>${formatDate(sale.createdAt)}</p><table><thead><tr><th>Type</th><th>Name</th><th>Qty</th><th>Unit</th><th>Discount</th><th>Tax</th><th>Total</th></tr></thead><tbody>${rows}</tbody></table><div><p>Subtotal: ${formatCurrency(sale.subtotal || 0)}</p><p>Discount: ${formatCurrency(sale.discount || 0)}</p><p>Tax: ${formatCurrency(sale.tax || 0)}</p><p>Grand Total: ${formatCurrency(sale.grandTotal || 0)}</p><p>Paid: ${formatCurrency(sale.paidAmount || 0)}</p><p>Due: ${formatCurrency(sale.dueAmount || 0)}</p><p>Change: ${formatCurrency(sale.change || 0)}</p></div></body></html>`)
+    const html = buildInvoicePrintHtml({
+      ...sale,
+      items: (sale.items || []).map((item) => ({ ...item, unitPrice: item.unitPrice || 0, total: item.total || 0 })),
+    }, settings)
+    printWindow.document.write(html)
     printWindow.document.close()
     printWindow.focus()
     printWindow.print()

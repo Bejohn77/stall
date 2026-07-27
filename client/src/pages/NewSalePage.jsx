@@ -4,6 +4,7 @@ import { FiMinus, FiPlus, FiPrinter, FiSearch, FiTrash2 } from 'react-icons/fi'
 import Topbar from '../components/Topbar'
 import api from '../services/api'
 import { formatCurrency } from '../utils/formatters'
+import { buildInvoicePrintHtml } from '../utils/printInvoice'
 
 const paymentMethods = ['Cash', 'Mobile Banking', 'Card']
 
@@ -22,12 +23,17 @@ export default function NewSalePage() {
   const [serviceForm, setServiceForm] = useState({ name: '', description: '', quantity: 1, unitPrice: '', discount: '', tax: '' })
   const [invoice, setInvoice] = useState(null)
   const [activeBillingView, setActiveBillingView] = useState('products')
+  const [settings, setSettings] = useState({ storeName: '', address: '', phone: '' })
 
   useEffect(() => {
     const loadCatalog = async () => {
       try {
-        const { data: productData } = await api.get('/products')
+        const [{ data: productData }, { data: settingsData }] = await Promise.all([
+          api.get('/products'),
+          api.get('/settings'),
+        ])
         setProducts(productData)
+        setSettings(settingsData || {})
         if (!selectedProductId && productData.length) setSelectedProductId(productData[0]._id)
       } catch (error) {
         toast.error('Could not load catalog')
@@ -218,61 +224,8 @@ export default function NewSalePage() {
     const printWindow = window.open('', '_blank', 'width=900,height=700')
     if (!printWindow) return toast.error('Please allow pop-ups to print the invoice')
 
-    const productRows = (invoice.items || []).filter((item) => item.type === 'product').map((item) => `
-      <tr>
-        <td>${item.name}</td>
-        <td>${item.quantity}</td>
-        <td>${formatCurrency(item.unitPrice)}</td>
-        <td>${formatCurrency(item.discount || 0)}</td>
-        <td>${formatCurrency(item.tax || 0)}</td>
-        <td>${formatCurrency(item.total)}</td>
-      </tr>
-    `).join('')
-
-    const serviceRows = (invoice.items || []).filter((item) => item.type === 'service').map((item) => `
-      <tr>
-        <td>${item.name}</td>
-        <td>${item.quantity}</td>
-        <td>${formatCurrency(item.unitPrice)}</td>
-        <td>${formatCurrency(item.discount || 0)}</td>
-        <td>${formatCurrency(item.tax || 0)}</td>
-        <td>${formatCurrency(item.total)}</td>
-      </tr>
-    `).join('')
-
-    printWindow.document.write(`<!DOCTYPE html>
-      <html>
-        <head>
-          <title>${invoice.invoiceNumber}</title>
-          <style>body{font-family:Arial,sans-serif;padding:24px;color:#0f172a}table{width:100%;border-collapse:collapse;margin-top:16px}th,td{padding:10px;border-bottom:1px solid #e2e8f0;text-align:left}h1,h2,h3,p{margin:0 0 8px} .summary{margin-top:16px;display:grid;gap:4px} .summary div{display:flex;justify-content:space-between}</style>
-        </head>
-        <body>
-          <h1>Invoice</h1>
-          <p><strong>${invoice.invoiceNumber}</strong></p>
-          <p>${invoice.customerName || 'Walk-in customer'}</p>
-          <p>${invoice.customerPhone || ''}</p>
-          <p>${new Date(invoice.createdAt).toLocaleString('en-BD')}</p>
-          <h3>Products</h3>
-          <table>
-            <thead><tr><th>Name</th><th>Qty</th><th>Unit</th><th>Discount</th><th>Tax</th><th>Total</th></tr></thead>
-            <tbody>${productRows || '<tr><td colspan="6">No products</td></tr>'}</tbody>
-          </table>
-          <h3 style="margin-top:16px">Services</h3>
-          <table>
-            <thead><tr><th>Name</th><th>Qty</th><th>Unit</th><th>Discount</th><th>Tax</th><th>Total</th></tr></thead>
-            <tbody>${serviceRows || '<tr><td colspan="6">No services</td></tr>'}</tbody>
-          </table>
-          <div class="summary">
-            <div><span>Subtotal</span><span>${formatCurrency(invoice.subtotal || 0)}</span></div>
-            <div><span>Discount</span><span>${formatCurrency(invoice.discount || 0)}</span></div>
-            <div><span>Tax</span><span>${formatCurrency(invoice.tax || 0)}</span></div>
-            <div><span>Grand Total</span><span>${formatCurrency(invoice.grandTotal || 0)}</span></div>
-            <div><span>Paid</span><span>${formatCurrency(invoice.paidAmount || 0)}</span></div>
-            <div><span>Due</span><span>${formatCurrency(invoice.dueAmount || 0)}</span></div>
-            <div><span>Change</span><span>${formatCurrency(invoice.change || 0)}</span></div>
-          </div>
-        </body>
-      </html>`)
+    const html = buildInvoicePrintHtml(invoice, settings)
+    printWindow.document.write(html)
     printWindow.document.close()
     printWindow.focus()
     printWindow.print()
