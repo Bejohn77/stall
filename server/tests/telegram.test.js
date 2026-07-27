@@ -24,3 +24,38 @@ test('formats a sale-deleted Telegram message with invoice details', () => {
   assert.match(text, /John Doe/)
   assert.match(text, /৳1200/)
 })
+
+test('formats new product and price update Telegram messages', () => {
+  const addedText = getTelegramMessageText('product-added', {
+    productName: 'Coca Cola 250ml',
+    category: 'Drinks',
+    buyingPrice: 30,
+    sellingPrice: 40,
+    stock: 50,
+    timestamp: new Date('2026-07-27T12:00:00.000Z'),
+  }, { currency: '৳' })
+
+  const priceUpdateText = getTelegramMessageText('product-price-updated', {
+    productName: 'Coca Cola 250ml',
+    buyingPrice: {
+      oldValue: 28,
+      newValue: 30,
+      difference: 2,
+    },
+    sellingPrice: {
+      oldValue: 38,
+      newValue: 40,
+      difference: 2,
+    },
+    timestamp: new Date('2026-07-27T12:00:00.000Z'),
+  }, { currency: '৳' })
+
+  assert.match(addedText, /NEW PRODUCT ADDED/i)
+  assert.match(addedText, /Coca Cola 250ml/)
+  assert.match(addedText, /Initial Stock: 50/i)
+
+  assert.match(priceUpdateText, /PRODUCT PRICE UPDATED/i)
+  assert.match(priceUpdateText, /Buying Price:/i)
+  assert.match(priceUpdateText, /Selling Price:/i)
+  assert.match(priceUpdateText, /Difference:/i)
+})

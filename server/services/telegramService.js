@@ -120,6 +120,35 @@ function getTelegramMessageText(eventType, payload = {}, settings = {}) {
         '',
         `Date & Time: ${formatDateTime(payload.timestamp)}`,
       ].join('\n')
+    case 'product-price-updated': {
+      const buyingPriceLines = payload.buyingPrice ? [
+        'Buying Price:',
+        `• Old: ${currency}${payload.buyingPrice.oldValue ?? 0}`,
+        `• New: ${currency}${payload.buyingPrice.newValue ?? 0}`,
+        `• Difference: ${payload.buyingPrice.difference >= 0 ? '+' : ''}${currency}${payload.buyingPrice.difference ?? 0}`,
+      ] : []
+
+      const sellingPriceLines = payload.sellingPrice ? [
+        'Selling Price:',
+        `• Old: ${currency}${payload.sellingPrice.oldValue ?? 0}`,
+        `• New: ${currency}${payload.sellingPrice.newValue ?? 0}`,
+        `• Difference: ${payload.sellingPrice.difference >= 0 ? '+' : ''}${currency}${payload.sellingPrice.difference ?? 0}`,
+      ] : []
+
+      const lines = [
+        '💰 PRODUCT PRICE UPDATED',
+        '',
+        `Product: ${payload.productName}`,
+        '',
+        ...(buyingPriceLines.length ? buyingPriceLines : []),
+        ...(buyingPriceLines.length && sellingPriceLines.length ? [''] : []),
+        ...(sellingPriceLines.length ? sellingPriceLines : []),
+        '',
+        `Date & Time: ${formatDateTime(payload.timestamp)}`,
+      ]
+
+      return lines.join('\n')
+    }
     default:
       return ''
   }
@@ -237,6 +266,29 @@ async function sendProductDeletedNotification(product, settings = {}) {
   return sendTelegramMessage(text, settings)
 }
 
+async function sendProductPriceUpdatedNotification(product, previousValues, settings = {}) {
+  const text = getTelegramMessageText(
+    'product-price-updated',
+    {
+      productName: product.name,
+      buyingPrice: previousValues.buyingPrice ? {
+        oldValue: previousValues.buyingPrice.oldValue,
+        newValue: previousValues.buyingPrice.newValue,
+        difference: previousValues.buyingPrice.newValue - previousValues.buyingPrice.oldValue,
+      } : null,
+      sellingPrice: previousValues.sellingPrice ? {
+        oldValue: previousValues.sellingPrice.oldValue,
+        newValue: previousValues.sellingPrice.newValue,
+        difference: previousValues.sellingPrice.newValue - previousValues.sellingPrice.oldValue,
+      } : null,
+      timestamp: new Date(),
+    },
+    settings
+  )
+
+  return sendTelegramMessage(text, settings)
+}
+
 function shouldSendLowStockNotification(product, previousStock, state = {}) {
   const threshold = 10
   const currentStock = Number(product?.stockQuantity ?? 0)
@@ -275,5 +327,6 @@ module.exports = {
   sendDamageNotification,
   sendProductAddedNotification,
   sendProductDeletedNotification,
+  sendProductPriceUpdatedNotification,
   shouldSendLowStockNotification,
 }

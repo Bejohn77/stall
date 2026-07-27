@@ -1,5 +1,7 @@
 const Sale = require('../models/Sale')
 const ServiceBill = require('../models/ServiceBill')
+const Damage = require('../models/Damage')
+const MonthlyCost = require('../models/MonthlyCost')
 const { getMode, getStore } = require('../utils/store')
 
 function buildDateRange(type, from, to) {
@@ -67,22 +69,53 @@ function summarizeServiceActivity(sales = [], bills = []) {
   }
 }
 
+function buildMonthlySummaryRange() {
+  const now = new Date()
+  const start = new Date(now.getFullYear(), now.getMonth(), 1)
+  const end = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999)
+  return { start, end }
+}
+
+function buildMonthlySummary(monthlySales = [], monthlyCosts = [], damageEntries = []) {
+  const totalMonthlySales = monthlySales.reduce((sum, sale) => sum + (sale.grandTotal || 0), 0)
+  const totalMonthlyCosts = monthlyCosts.reduce((sum, cost) => sum + Number(cost.amount || 0), 0)
+  const totalDamagedProductLoss = damageEntries.reduce((sum, damage) => sum + Number(damage.quantity || 0) * Number(damage.costPrice || 0), 0)
+  const totalMonthlyNetProfit = totalMonthlySales - totalMonthlyCosts - totalDamagedProductLoss
+
+  return {
+    totalMonthlySales,
+    totalMonthlyCosts,
+    totalDamagedProductLoss,
+    totalMonthlyNetProfit,
+  }
+}
+
 async function getReport(req, res, next) {
   try {
     const type = req.params.type || 'daily'
     const { from, to } = req.query
     const range = buildDateRange(type, from, to)
+    const monthlyRange = buildMonthlySummaryRange()
 
     let sales = []
     let serviceBills = []
+    let monthlySales = []
+    let monthlyCosts = []
+    let damageEntries = []
     if (getMode() === 'memory') {
       const store = getStore()
       sales = store.sales.filter((sale) => new Date(sale.createdAt) >= range.start && new Date(sale.createdAt) <= range.end)
       sales.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt))
       serviceBills = (store.serviceBills || []).filter((bill) => new Date(bill.createdAt) >= range.start && new Date(bill.createdAt) <= range.end)
+      monthlySales = store.sales.filter((sale) => new Date(sale.createdAt) >= monthlyRange.start && new Date(sale.createdAt) <= monthlyRange.end)
+      monthlyCosts = (store.monthlyCosts || []).filter((cost) => new Date(cost.date) >= monthlyRange.start && new Date(cost.date) <= monthlyRange.end)
+      damageEntries = (store.damages || []).filter((damage) => new Date(damage.createdAt) >= monthlyRange.start && new Date(damage.createdAt) <= monthlyRange.end)
     } else {
       sales = await Sale.find({ createdAt: { $gte: range.start, $lte: range.end } }).sort({ createdAt: 1 })
       serviceBills = await ServiceBill.find({ createdAt: { $gte: range.start, $lte: range.end } }).sort({ createdAt: 1 })
+      monthlySales = await Sale.find({ createdAt: { $gte: monthlyRange.start, $lte: monthlyRange.end } }).sort({ createdAt: 1 })
+      monthlyCosts = await MonthlyCost.find({ date: { $gte: monthlyRange.start, $lte: monthlyRange.end } }).sort({ date: 1 })
+      damageEntries = await Damage.find({ createdAt: { $gte: monthlyRange.start, $lte: monthlyRange.end } }).sort({ createdAt: 1 })
     }
 
     const summary = {
@@ -90,6 +123,8 @@ async function getReport(req, res, next) {
       profit: sales.reduce((sum, sale) => sum + sale.profit, 0),
       productsSold: sales.reduce((sum, sale) => sum + sale.items.reduce((count, item) => count + item.quantity, 0), 0),
     }
+
+    const monthlySummary = buildMonthlySummary(monthlySales, monthlyCosts, damageEntries)
 
     const chartData = sales.length
       ? sales.map((sale) => ({ name: sale.invoiceNumber, revenue: sale.grandTotal, profit: sale.profit }))
@@ -108,10 +143,11 @@ async function getReport(req, res, next) {
       chartData,
       bestProducts,
       serviceSummary: summarizeServiceActivity(sales, serviceBills),
+      monthlySummary,
     })
   } catch (error) {
     next(error)
   }
 }
 
-module.exports = { getReport, summarizeServiceActivity }
+module.exports = { getReport, summarizeServiceActivity, buildMonthlySummary }

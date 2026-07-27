@@ -9,6 +9,7 @@ import ReportsPage from './pages/ReportsPage'
 import DamagedProductsPage from './pages/DamagedProductsPage'
 import ServiceBillingPage from './pages/ServiceBillingPage'
 import SettingsPage from './pages/SettingsPage'
+import MonthlyCostPage from './pages/MonthlyCostPage'
 
 export default function App() {
   const location = useLocation()
@@ -23,6 +24,7 @@ export default function App() {
         <Route path="/reports" element={<ReportsPage />} />
         <Route path="/damages" element={<DamagedProductsPage />} />
         <Route path="/services/billing" element={<NewSalePage />} />
+        <Route path="/monthly-costs" element={<MonthlyCostPage />} />
         <Route path="/settings" element={<SettingsPage />} />
       </Route>
     </Routes>

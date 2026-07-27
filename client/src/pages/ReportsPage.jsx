@@ -113,6 +113,23 @@ export default function ReportsPage() {
           <div className="h-48 animate-pulse rounded-[24px] bg-slate-200 dark:bg-slate-800" />
         ) : report ? (
           <>
+            {activeRange === 'monthly' && (
+              <div className="mb-6 rounded-[24px] border border-slate-200 p-4 dark:border-slate-800">
+                <div className="mb-4 flex items-center justify-between">
+                  <div>
+                    <h4 className="font-semibold">Monthly Summary</h4>
+                    <p className="text-sm text-slate-500">Overview for the selected month</p>
+                  </div>
+                </div>
+                <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                  <div className="rounded-[20px] bg-slate-50 p-4 dark:bg-slate-900"><p className="text-sm text-slate-500">Total Monthly Sales</p><p className="mt-2 text-xl font-semibold">{formatCurrency(report.monthlySummary?.totalMonthlySales || 0)}</p></div>
+                  <div className="rounded-[20px] bg-slate-50 p-4 dark:bg-slate-900"><p className="text-sm text-slate-500">Total Monthly Costs</p><p className="mt-2 text-xl font-semibold">{formatCurrency(report.monthlySummary?.totalMonthlyCosts || 0)}</p></div>
+                  <div className="rounded-[20px] bg-slate-50 p-4 dark:bg-slate-900"><p className="text-sm text-slate-500">Total Damaged Product Loss</p><p className="mt-2 text-xl font-semibold">{formatCurrency(report.monthlySummary?.totalDamagedProductLoss || 0)}</p></div>
+                  <div className="rounded-[20px] bg-slate-50 p-4 dark:bg-slate-900"><p className="text-sm text-slate-500">Total Monthly Net Profit</p><p className="mt-2 text-xl font-semibold">{formatCurrency(report.monthlySummary?.totalMonthlyNetProfit || 0)}</p></div>
+                </div>
+              </div>
+            )}
+
             <div className="mb-6 grid gap-4 md:grid-cols-3">
               <div className="rounded-[20px] bg-slate-50 p-4 dark:bg-slate-900"><p className="text-sm text-slate-500">Sales</p><p className="mt-2 text-xl font-semibold">{formatCurrency(report.summary.sales)}</p></div>
               <div className="rounded-[20px] bg-slate-50 p-4 dark:bg-slate-900"><p className="text-sm text-slate-500">Profit</p><p className="mt-2 text-xl font-semibold">{formatCurrency(report.summary.profit)}</p></div>

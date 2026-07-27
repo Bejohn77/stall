@@ -8,6 +8,7 @@ const { getReport } = require('../controllers/reportController')
 const { listServices, createService, updateService, deleteService, createServiceBill, listServiceBills } = require('../controllers/serviceController')
 const { getSettings, updateSettings, backupData, restoreData } = require('../controllers/settingController')
 const { verifyProductsPassword } = require('../controllers/authController')
+const { listMonthlyCosts, createMonthlyCost, deleteMonthlyCost } = require('../controllers/monthlyCostController')
 
 router.get('/dashboard', getDashboard)
 router.get('/products', listProducts)
@@ -32,6 +33,9 @@ router.get('/settings', getSettings)
 router.put('/settings', updateSettings)
 router.get('/settings/backup', backupData)
 router.post('/settings/restore', restoreData)
+router.get('/monthly-costs', listMonthlyCosts)
+router.post('/monthly-costs', createMonthlyCost)
+router.delete('/monthly-costs/:id', deleteMonthlyCost)
 router.post('/auth/verify-products-password', verifyProductsPassword)
 
 module.exports = router

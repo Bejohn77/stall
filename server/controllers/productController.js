@@ -1,6 +1,6 @@
 const Product = require('../models/Product')
 const Setting = require('../models/Setting')
-const { sendLowStockNotification, sendStockUpdatedNotification, shouldSendLowStockNotification } = require('../services/telegramService')
+const { sendLowStockNotification, sendStockUpdatedNotification, shouldSendLowStockNotification, sendProductAddedNotification, sendProductPriceUpdatedNotification } = require('../services/telegramService')
 const { getMode, getStore, createId, clone } = require('../utils/store')
 
 async function listProducts(req, res, next) {
@@ -53,6 +53,11 @@ async function createProduct(req, res, next) {
           console.warn('Low stock Telegram notification skipped after error:', notification.error)
         }
       }
+
+      const addedNotification = await sendProductAddedNotification(product, settings)
+      if (!addedNotification.ok && !addedNotification.skipped) {
+        console.warn('New product Telegram notification skipped after error:', addedNotification.error)
+      }
       return res.status(201).json(product)
     }
 
@@ -63,6 +68,11 @@ async function createProduct(req, res, next) {
       if (!notification.ok && !notification.skipped) {
         console.warn('Low stock Telegram notification skipped after error:', notification.error)
       }
+    }
+
+    const addedNotification = await sendProductAddedNotification(product, settings)
+    if (!addedNotification.ok && !addedNotification.skipped) {
+      console.warn('New product Telegram notification skipped after error:', addedNotification.error)
     }
     res.status(201).json(product)
   } catch (error) {
@@ -84,10 +94,34 @@ async function updateProduct(req, res, next) {
       Object.assign(product, { ...req.body, buyingPrice: Number(req.body.buyingPrice || product.buyingPrice), sellingPrice: Number(req.body.sellingPrice || product.sellingPrice), stockQuantity: nextStock, updatedAt: new Date().toISOString() })
 
       const settings = store.settings
+      const priceUpdates = []
+      const previousBuyingPrice = Number(product.buyingPrice || 0)
+      const previousSellingPrice = Number(product.sellingPrice || 0)
+      const nextBuyingPrice = Number(req.body.buyingPrice ?? product.buyingPrice)
+      const nextSellingPrice = Number(req.body.sellingPrice ?? product.sellingPrice)
+
+      if (req.body.buyingPrice !== undefined && nextBuyingPrice !== previousBuyingPrice) {
+        priceUpdates.push({ type: 'buyingPrice', oldValue: previousBuyingPrice, newValue: nextBuyingPrice })
+      }
+      if (req.body.sellingPrice !== undefined && nextSellingPrice !== previousSellingPrice) {
+        priceUpdates.push({ type: 'sellingPrice', oldValue: previousSellingPrice, newValue: nextSellingPrice })
+      }
+
+      Object.assign(product, { ...req.body, buyingPrice: nextBuyingPrice, sellingPrice: nextSellingPrice, stockQuantity: nextStock, updatedAt: new Date().toISOString() })
+
       if (updatedQuantity !== 0) {
         const updateType = updatedQuantity > 0 ? 'Stock Added' : 'Stock Reduced'
         void sendStockUpdatedNotification(product, previousStock, updatedQuantity, settings, req.body.updatedBy || 'Owner', updateType).catch((error) => {
           console.warn('Stock update Telegram notification skipped after error:', error.message)
+        })
+      }
+
+      if (priceUpdates.length > 0) {
+        void sendProductPriceUpdatedNotification(product, {
+          buyingPrice: priceUpdates.find((update) => update.type === 'buyingPrice') ? { oldValue: priceUpdates.find((update) => update.type === 'buyingPrice').oldValue, newValue: priceUpdates.find((update) => update.type === 'buyingPrice').newValue } : null,
+          sellingPrice: priceUpdates.find((update) => update.type === 'sellingPrice') ? { oldValue: priceUpdates.find((update) => update.type === 'sellingPrice').oldValue, newValue: priceUpdates.find((update) => update.type === 'sellingPrice').newValue } : null,
+        }, settings).catch((error) => {
+          console.warn('Price update Telegram notification skipped after error:', error.message)
         })
       }
 
@@ -106,8 +140,20 @@ async function updateProduct(req, res, next) {
     const previousStock = Number(existingProduct.stockQuantity || 0)
     const nextStock = Number(req.body.stockQuantity ?? existingProduct.stockQuantity)
     const updatedQuantity = nextStock - previousStock
+    const previousBuyingPrice = Number(existingProduct.buyingPrice || 0)
+    const previousSellingPrice = Number(existingProduct.sellingPrice || 0)
+    const nextBuyingPrice = Number(req.body.buyingPrice ?? existingProduct.buyingPrice)
+    const nextSellingPrice = Number(req.body.sellingPrice ?? existingProduct.sellingPrice)
 
-    const product = await Product.findByIdAndUpdate(req.params.id, { ...req.body, stockQuantity: nextStock }, { new: true })
+    const priceUpdates = []
+    if (req.body.buyingPrice !== undefined && nextBuyingPrice !== previousBuyingPrice) {
+      priceUpdates.push({ type: 'buyingPrice', oldValue: previousBuyingPrice, newValue: nextBuyingPrice })
+    }
+    if (req.body.sellingPrice !== undefined && nextSellingPrice !== previousSellingPrice) {
+      priceUpdates.push({ type: 'sellingPrice', oldValue: previousSellingPrice, newValue: nextSellingPrice })
+    }
+
+    const product = await Product.findByIdAndUpdate(req.params.id, { ...req.body, buyingPrice: nextBuyingPrice, sellingPrice: nextSellingPrice, stockQuantity: nextStock }, { new: true })
     if (!product) return res.status(404).json({ message: 'Product not found' })
 
     const settings = await Setting.findOne()
@@ -115,6 +161,15 @@ async function updateProduct(req, res, next) {
       const updateType = updatedQuantity > 0 ? 'Stock Added' : 'Stock Reduced'
       void sendStockUpdatedNotification(product, previousStock, updatedQuantity, settings, req.body.updatedBy || 'Owner', updateType).catch((error) => {
         console.warn('Stock update Telegram notification skipped after error:', error.message)
+      })
+    }
+
+    if (priceUpdates.length > 0) {
+      void sendProductPriceUpdatedNotification(product, {
+        buyingPrice: priceUpdates.find((update) => update.type === 'buyingPrice') ? { oldValue: priceUpdates.find((update) => update.type === 'buyingPrice').oldValue, newValue: priceUpdates.find((update) => update.type === 'buyingPrice').newValue } : null,
+        sellingPrice: priceUpdates.find((update) => update.type === 'sellingPrice') ? { oldValue: priceUpdates.find((update) => update.type === 'sellingPrice').oldValue, newValue: priceUpdates.find((update) => update.type === 'sellingPrice').newValue } : null,
+      }, settings).catch((error) => {
+        console.warn('Price update Telegram notification skipped after error:', error.message)
       })
     }
 

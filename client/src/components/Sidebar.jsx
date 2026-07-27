@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom'
-import { FiHome, FiPackage, FiShoppingCart, FiClock, FiBarChart2, FiFileText, FiSettings, FiAlertTriangle } from 'react-icons/fi'
+import { FiHome, FiPackage, FiShoppingCart, FiClock, FiBarChart2, FiFileText, FiSettings, FiAlertTriangle, FiDollarSign } from 'react-icons/fi'
 
 const navItems = [
   { to: '/', label: 'Dashboard', icon: FiHome },
@@ -8,6 +8,7 @@ const navItems = [
   { to: '/sales/history', label: 'Sales History', icon: FiClock },
   { to: '/reports', label: 'Reports', icon: FiBarChart2 },
   { to: '/damages', label: 'Damaged Products', icon: FiAlertTriangle },
+  { to: '/monthly-costs', label: 'Monthly Cost', icon: FiDollarSign },
   { to: '/services/billing', label: 'Service Billing', icon: FiFileText },
   { to: '/settings', label: 'Settings', icon: FiSettings },
 ]
@@ -35,7 +36,7 @@ export default function Sidebar() {
       </nav>
       <div className="mt-auto rounded-3xl bg-gradient-to-br from-indigo-600 to-violet-600 p-4 text-white shadow-xl">
         <p className="text-sm font-medium">Single owner workflow</p>
-        <p className="mt-1 text-sm text-indigo-100">Created By Bejohn</p>
+        <b className="mt-1 text-sm text-indigo-100">Created By Bejohn</b>
       </div>
     </aside>
   )

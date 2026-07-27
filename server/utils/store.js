@@ -7,6 +7,7 @@ function getStore() {
       sales: [],
       serviceBills: [],
       damages: [],
+      monthlyCosts: [],
       settings: {
         storeName: 'Stall Manager',
         phone: '',

@@ -2,6 +2,7 @@ const Product = require('../models/Product')
 const Sale = require('../models/Sale')
 const ServiceBill = require('../models/ServiceBill')
 const Damage = require('../models/Damage')
+const MonthlyCost = require('../models/MonthlyCost')
 const { getMode, getStore } = require('../utils/store')
 
 function buildDateRange(type) {
@@ -49,12 +50,15 @@ function summarizeServiceActivity(bills) {
 
 async function getDashboard(req, res, next) {
   try {
+    const monthRange = buildDateRange('month')
+    const selectedMonth = `${monthRange.start.getFullYear()}-${String(monthRange.start.getMonth() + 1).padStart(2, '0')}`
+
     if (getMode() === 'memory') {
       const store = getStore()
       const todayRange = buildDateRange('today')
-      const monthRange = buildDateRange('month')
       const todaySales = store.sales.filter((sale) => new Date(sale.createdAt) >= todayRange.start && new Date(sale.createdAt) <= todayRange.end)
       const monthlySales = store.sales.filter((sale) => new Date(sale.createdAt) >= monthRange.start && new Date(sale.createdAt) <= monthRange.end)
+      const monthlyCosts = (store.monthlyCosts || []).filter((cost) => String(cost.month || '').trim() === selectedMonth)
       const totalProducts = store.products.length
       const lowStockProducts = store.products.filter((product) => product.stockQuantity <= 3).length
       const recentSales = [...store.sales].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)).slice(0, 5)
@@ -67,12 +71,16 @@ async function getDashboard(req, res, next) {
       const todayProfitValue = todaySales.reduce((sum, sale) => sum + sale.profit, 0)
       const monthlySalesValue = monthlySales.reduce((sum, sale) => sum + sale.grandTotal, 0)
       const monthlyProfitValue = monthlySales.reduce((sum, sale) => sum + sale.profit, 0)
+      const monthlyCostValue = monthlyCosts.reduce((sum, cost) => sum + Number(cost.amount || 0), 0)
+      const netProfitValue = monthlySalesValue - monthlyCostValue
 
       return res.json({
         todaySales: todaySalesValue,
         todayProfit: todayProfitValue,
         monthlySales: monthlySalesValue,
         monthlyProfit: monthlyProfitValue,
+        monthlyCost: monthlyCostValue,
+        netProfit: netProfitValue,
         totalProducts,
         lowStockProducts,
         recentSales,
@@ -101,7 +109,7 @@ async function getDashboard(req, res, next) {
       })
     }
 
-    const [todaySales, monthlySales, totalProducts, lowStockProducts, recentSales, lowStockItems, todayServiceBills, todayDamages, monthlyDamages] = await Promise.all([
+    const [todaySales, monthlySales, totalProducts, lowStockProducts, recentSales, lowStockItems, todayServiceBills, todayDamages, monthlyDamages, monthlyCosts] = await Promise.all([
       Sale.find({ createdAt: { $gte: buildDateRange('today').start, $lte: buildDateRange('today').end } }),
       Sale.find({ createdAt: { $gte: buildDateRange('month').start, $lte: buildDateRange('month').end } }),
       Product.countDocuments(),
@@ -111,12 +119,15 @@ async function getDashboard(req, res, next) {
       ServiceBill.find({ createdAt: { $gte: buildDateRange('today').start, $lte: buildDateRange('today').end } }),
       Damage.find({ createdAt: { $gte: buildDateRange('today').start, $lte: buildDateRange('today').end } }),
       Damage.find({ createdAt: { $gte: buildDateRange('month').start, $lte: buildDateRange('month').end } }),
+      MonthlyCost.find({ month: selectedMonth }),
     ])
 
     const todaySalesValue = todaySales.reduce((sum, sale) => sum + sale.grandTotal, 0)
     const todayProfitValue = todaySales.reduce((sum, sale) => sum + sale.profit, 0)
     const monthlySalesValue = monthlySales.reduce((sum, sale) => sum + sale.grandTotal, 0)
     const monthlyProfitValue = monthlySales.reduce((sum, sale) => sum + sale.profit, 0)
+    const monthlyCostValue = monthlyCosts.reduce((sum, cost) => sum + Number(cost.amount || 0), 0)
+    const netProfitValue = monthlySalesValue - monthlyCostValue
 
     const dailySalesChart = [
       { name: 'Mon', sales: 3200 },
@@ -140,6 +151,8 @@ async function getDashboard(req, res, next) {
       todayProfit: todayProfitValue,
       monthlySales: monthlySalesValue,
       monthlyProfit: monthlyProfitValue,
+      monthlyCost: monthlyCostValue,
+      netProfit: netProfitValue,
       totalProducts,
       lowStockProducts,
       recentSales,

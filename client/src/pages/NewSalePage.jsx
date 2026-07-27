@@ -294,26 +294,23 @@ export default function NewSalePage() {
               <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search by name or category" className="w-full border-0 bg-transparent outline-none" />
             </label>
             {loading ? (
-              <div className="grid gap-3 md:grid-cols-2">{[...Array(4)].map((_, i) => <div key={i} className="h-24 animate-pulse rounded-[20px] bg-slate-200 dark:bg-slate-800" />)}</div>
+              <div className="space-y-2">{[...Array(4)].map((_, i) => <div key={i} className="h-14 animate-pulse rounded-2xl bg-slate-200 dark:bg-slate-800" />)}</div>
             ) : (
-              <div className="grid gap-3 md:grid-cols-2">
+              <div className="space-y-2">
                 {filteredProducts.map((product) => (
                   <button key={product._id} onClick={() => {
                     setSelectedProductId(product._id)
                     addProductItem(product)
-                  }} className={`rounded-[20px] border p-3 text-left transition hover:-translate-y-0.5 hover:shadow-md ${selectedProductId === product._id ? 'border-indigo-500 bg-indigo-50 dark:border-indigo-400 dark:bg-indigo-950/40' : 'border-slate-200 dark:border-slate-800'}`}>
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <p className="font-semibold">{product.name}</p>
-                        <p className="text-sm text-slate-500">{product.category}</p>
-                      </div>
+                  }} className={`flex w-full items-center justify-between rounded-2xl border px-3 py-3 text-left transition ${selectedProductId === product._id ? 'border-indigo-500 bg-indigo-50 dark:border-indigo-400 dark:bg-indigo-950/40' : 'border-slate-200 dark:border-slate-800'}`}>
+                    <div className="min-w-0">
+                      <p className="truncate font-semibold">{product.name}</p>
+                      <p className="text-sm text-slate-500">{product.category}</p>
+                    </div>
+                    <div className="ml-3 flex shrink-0 items-center gap-2 text-sm">
+                      <span className="font-medium text-slate-700 dark:text-slate-300">{formatCurrency(product.sellingPrice)}</span>
                       <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${product.stockQuantity <= 0 ? 'bg-rose-100 text-rose-600' : 'bg-emerald-100 text-emerald-600'}`}>
                         {product.stockQuantity <= 0 ? 'Out' : `${product.stockQuantity} left`}
                       </span>
-                    </div>
-                    <div className="mt-3 flex items-center justify-between text-sm">
-                      <span>{formatCurrency(product.sellingPrice)}</span>
-                      <span className="text-slate-400">{product.unit}</span>
                     </div>
                   </button>
                 ))}
