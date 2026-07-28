@@ -3,6 +3,7 @@ import toast from 'react-hot-toast'
 import { FiMinus, FiPlus, FiPrinter, FiSearch, FiTrash2 } from 'react-icons/fi'
 import Topbar from '../components/Topbar'
 import api from '../services/api'
+import { useAuth } from '../context/AuthContext'
 import { formatCurrency } from '../utils/formatters'
 import { buildInvoicePrintHtml } from '../utils/printInvoice'
 
@@ -24,6 +25,7 @@ export default function NewSalePage() {
   const [invoice, setInvoice] = useState(null)
   const [activeBillingView, setActiveBillingView] = useState('products')
   const [settings, setSettings] = useState({ storeName: '', address: '', phone: '' })
+  const { user } = useAuth()
 
   useEffect(() => {
     const loadCatalog = async () => {
@@ -212,6 +214,7 @@ export default function NewSalePage() {
         customerPhone,
         paymentMethod,
         paidAmount: parsedPaidAmount,
+        soldBy: user?.fullName || user?.username || 'System',
       }
 
       const { data } = await api.post('/sales', payload)

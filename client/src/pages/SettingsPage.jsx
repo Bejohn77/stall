@@ -6,6 +6,8 @@ import api from '../services/api'
 
 export default function SettingsPage() {
   const [settings, setSettings] = useState(null)
+  const [passwordForm, setPasswordForm] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' })
+  const [passwordSubmitting, setPasswordSubmitting] = useState(false)
   const { register, handleSubmit, reset, formState: { errors } } = useForm()
 
   const fetchSettings = async () => {
@@ -68,6 +70,47 @@ export default function SettingsPage() {
     }
   }
 
+  const handlePasswordSubmit = async (event) => {
+    event.preventDefault()
+    const { currentPassword, newPassword, confirmPassword } = passwordForm
+
+    if (!currentPassword.trim()) {
+      toast.error('Current password is required')
+      return
+    }
+
+    if (!newPassword.trim()) {
+      toast.error('New password is required')
+      return
+    }
+
+    if (newPassword.length < 8) {
+      toast.error('Password must be at least 8 characters long')
+      return
+    }
+
+    if (!/[A-Za-z]/.test(newPassword) || !/\d/.test(newPassword)) {
+      toast.error('Password must include at least one letter and one number')
+      return
+    }
+
+    if (newPassword !== confirmPassword) {
+      toast.error('New passwords do not match')
+      return
+    }
+
+    setPasswordSubmitting(true)
+    try {
+      const { data } = await api.post('/auth/change-password', { currentPassword, newPassword })
+      toast.success(data.message || 'Password changed successfully')
+      setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' })
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Failed to change password')
+    } finally {
+      setPasswordSubmitting(false)
+    }
+  }
+
   return (
     <div className="space-y-6">
       <Topbar title="Settings" subtitle="Control store preferences and Telegram alerts" />
@@ -105,6 +148,19 @@ export default function SettingsPage() {
             Restore Database
             <input type="file" accept="application/json" onChange={restoreData} className="hidden" />
           </label>
+        </div>
+
+        <div className="mt-8 rounded-[28px] border border-slate-200 bg-slate-50 p-6 dark:border-slate-800 dark:bg-slate-900/60">
+          <h2 className="text-lg font-semibold">Change Password</h2>
+          <p className="mt-1 text-sm text-slate-500">Use this to change your own password securely.</p>
+          <form onSubmit={handlePasswordSubmit} className="mt-4 space-y-3">
+            <input type="password" value={passwordForm.currentPassword} onChange={(event) => setPasswordForm((current) => ({ ...current, currentPassword: event.target.value }))} placeholder="Current password" className="w-full rounded-2xl border border-slate-200 p-3 dark:border-slate-800 dark:bg-slate-950" />
+            <input type="password" value={passwordForm.newPassword} onChange={(event) => setPasswordForm((current) => ({ ...current, newPassword: event.target.value }))} placeholder="New password" className="w-full rounded-2xl border border-slate-200 p-3 dark:border-slate-800 dark:bg-slate-950" />
+            <input type="password" value={passwordForm.confirmPassword} onChange={(event) => setPasswordForm((current) => ({ ...current, confirmPassword: event.target.value }))} placeholder="Confirm new password" className="w-full rounded-2xl border border-slate-200 p-3 dark:border-slate-800 dark:bg-slate-950" />
+            <button type="submit" disabled={passwordSubmitting} className="rounded-2xl bg-indigo-600 px-4 py-2 font-semibold text-white disabled:opacity-70">
+              {passwordSubmitting ? 'Updating...' : 'Update Password'}
+            </button>
+          </form>
         </div>
       </div>
     </div>

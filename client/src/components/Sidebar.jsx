@@ -1,19 +1,24 @@
 import { NavLink } from 'react-router-dom'
-import { FiHome, FiPackage, FiShoppingCart, FiClock, FiBarChart2, FiFileText, FiSettings, FiAlertTriangle, FiDollarSign } from 'react-icons/fi'
+import { FiHome, FiPackage, FiShoppingCart, FiClock, FiBarChart2, FiFileText, FiSettings, FiAlertTriangle, FiDollarSign, FiUsers, FiLogOut } from 'react-icons/fi'
+import { useAuth } from '../context/AuthContext'
 
-const navItems = [
-  { to: '/', label: 'Dashboard', icon: FiHome },
-  { to: '/products', label: 'Products', icon: FiPackage },
-  { to: '/sales/new', label: 'Sales & Services', icon: FiShoppingCart },
-  { to: '/sales/history', label: 'Sales History', icon: FiClock },
-  { to: '/reports', label: 'Reports', icon: FiBarChart2 },
-  { to: '/damages', label: 'Damaged Products', icon: FiAlertTriangle },
-  { to: '/monthly-costs', label: 'Monthly Cost', icon: FiDollarSign },
-  { to: '/services/billing', label: 'Service Billing', icon: FiFileText },
-  { to: '/settings', label: 'Settings', icon: FiSettings },
+const allNavItems = [
+  { to: '/', label: 'Dashboard', icon: FiHome, roles: ['admin'] },
+  { to: '/products', label: 'Products', icon: FiPackage, roles: ['admin'] },
+  { to: '/sales/new', label: 'Sales & Services', icon: FiShoppingCart, roles: ['admin', 'salesman'] },
+  { to: '/sales/history', label: 'Sales History', icon: FiClock, roles: ['admin', 'salesman'] },
+  { to: '/reports', label: 'Reports', icon: FiBarChart2, roles: ['admin'] },
+  { to: '/damages', label: 'Damaged Products', icon: FiAlertTriangle, roles: ['admin', 'salesman'] },
+  { to: '/monthly-costs', label: 'Monthly Cost', icon: FiDollarSign, roles: ['admin'] },
+  { to: '/users', label: 'User Management', icon: FiUsers, roles: ['admin'] },
+  { to: '/settings', label: 'Settings', icon: FiSettings, roles: ['admin'] },
 ]
 
 export default function Sidebar() {
+  const { user, logout } = useAuth()
+  const normalizedRole = user?.role === 'staff' ? 'salesman' : user?.role || 'salesman'
+  const navItems = allNavItems.filter((item) => item.roles.includes(normalizedRole))
+
   return (
     <aside className="flex h-screen w-72 flex-col border-r border-slate-200 bg-white/80 p-6 shadow-sm backdrop-blur dark:border-slate-800 dark:bg-slate-950/80 lg:flex">
       <div className="mb-10">
@@ -34,9 +39,14 @@ export default function Sidebar() {
           </NavLink>
         ))}
       </nav>
-      <div className="mt-auto rounded-3xl bg-gradient-to-br from-indigo-600 to-violet-600 p-4 text-white shadow-xl">
-        <p className="text-sm font-medium">Created By Bejohn</p>
-        <p className="mt-1 text-sm text-indigo-100">Contract info: 01864918438</p>
+      <div className="mt-auto space-y-3">
+        <div className="rounded-3xl bg-gradient-to-br from-indigo-600 to-violet-600 p-4 text-white shadow-xl">
+          <p className="text-sm font-medium">{user?.fullName || 'User'}</p>
+          <p className="mt-1 text-sm capitalize text-indigo-100">{user?.role || 'staff'}</p>
+        </div>
+        <button onClick={logout} className="flex w-full items-center justify-center gap-2 rounded-2xl border border-slate-200 px-3 py-2 text-sm font-medium text-slate-600 dark:border-slate-800 dark:text-slate-300">
+          <FiLogOut /> Logout
+        </button>
       </div>
     </aside>
   )
