@@ -20,7 +20,7 @@ export default function Sidebar() {
   const navItems = allNavItems.filter((item) => item.roles.includes(normalizedRole))
 
   return (
-    <aside className="flex h-screen w-72 flex-col border-r border-slate-200 bg-white/80 p-6 shadow-sm backdrop-blur dark:border-slate-800 dark:bg-slate-950/80 lg:flex">
+    <aside className="fixed left-0 top-0 z-50 flex h-screen w-72 flex-col border-r border-slate-200 bg-white/80 p-6 shadow-sm backdrop-blur dark:border-slate-800 dark:bg-slate-950/80">
       <div className="mb-10">
         <p className="text-sm font-semibold uppercase tracking-[0.32em] text-slate-400">Stall Manager</p>
         <h2 className="mt-2 text-2xl font-semibold text-slate-900 dark:text-white">Progga computer</h2>
