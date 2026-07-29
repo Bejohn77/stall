@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { BarChart, Bar, CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { FiDownload } from 'react-icons/fi'
-import Topbar from '../components/Topbar'
 import api from '../services/api'
 import { formatCurrency } from '../utils/formatters'
 
@@ -108,7 +107,6 @@ export default function ReportsPage() {
 
   return (
     <div className="space-y-6">
-      <Topbar title="Reports" subtitle="Daily, weekly, monthly and custom reports" />
       <div className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-950">
         <div className="mb-5 flex flex-wrap gap-3">
           {ranges.map((range) => (

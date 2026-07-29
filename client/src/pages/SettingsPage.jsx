@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import toast from 'react-hot-toast'
-import Topbar from '../components/Topbar'
 import api from '../services/api'
 
 export default function SettingsPage() {
@@ -113,7 +112,6 @@ export default function SettingsPage() {
 
   return (
     <div className="space-y-6">
-      <Topbar title="Settings" subtitle="Control store preferences and Telegram alerts" />
       <div className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-950">
         <form onSubmit={handleSubmit(onSubmit)} className="grid gap-4 md:grid-cols-2">
           <div className="md:col-span-2">

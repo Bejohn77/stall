@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import toast from 'react-hot-toast'
 import { FiEdit2, FiPlus, FiSave, FiTrash2 } from 'react-icons/fi'
-import Topbar from '../components/Topbar'
 import api from '../services/api'
 import { formatCurrency } from '../utils/formatters'
 
@@ -115,7 +114,6 @@ export default function ServiceBillingPage() {
 
   return (
     <div className="space-y-6">
-      <Topbar title="Service Billing" subtitle="Create and manage services with your own fees and units" />
       <div className="grid gap-6 xl:grid-cols-[1.05fr_0.95fr]">
         <div className="space-y-6">
           <div className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-950">

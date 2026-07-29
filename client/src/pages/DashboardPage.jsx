@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
 import { FiPackage, FiTrendingUp, FiDollarSign, FiAlertTriangle } from 'react-icons/fi'
 import { BarChart, Bar, CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
-import Topbar from '../components/Topbar'
 import StatCard from '../components/StatCard'
 import api from '../services/api'
 import { formatCurrency, formatDate } from '../utils/formatters'
@@ -17,7 +16,6 @@ export default function DashboardPage() {
   if (loading) {
     return (
       <div className="space-y-6">
-        <Topbar title="Dashboard" subtitle="Overview of your stall performance" />
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {[...Array(6)].map((_, i) => (
             <div key={i} className="h-36 animate-pulse rounded-[24px] bg-slate-200 dark:bg-slate-800" />
@@ -31,7 +29,6 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-6">
-      <Topbar title="Dashboard" subtitle="Overview of your stall performance" />
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         <StatCard label="Today's Sales" value={formatCurrency(dashboard.todaySales)} hint="Live sales from today" accent="indigo" />
         <StatCard label="Today's Profit" value={formatCurrency(dashboard.todayProfit)} hint="Net gain from today's sales" accent="emerald" />

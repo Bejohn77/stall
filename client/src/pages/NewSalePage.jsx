@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import toast from 'react-hot-toast'
 import { FiMinus, FiPlus, FiPrinter, FiSearch, FiTrash2 } from 'react-icons/fi'
-import Topbar from '../components/Topbar'
 import api from '../services/api'
 import { useAuth } from '../context/AuthContext'
 import { formatCurrency } from '../utils/formatters'
@@ -249,7 +248,6 @@ export default function NewSalePage() {
 
   return (
     <div className="space-y-6">
-      <Topbar title="Sales & Services" subtitle="Create custom service lines and mixed invoices" />
       <div className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
         <div className="space-y-6">
           <div className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-950">

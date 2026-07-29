@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
 import toast from 'react-hot-toast'
-import Topbar from '../components/Topbar'
 import api from '../services/api'
 
 const emptyForm = {
@@ -127,8 +126,6 @@ export default function UserManagementPage() {
 
   return (
     <div className="space-y-6">
-      <Topbar title="User Management" subtitle="Create and manage salesman accounts" />
-
       <div className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-950">
         <form onSubmit={handleSubmit} className="grid gap-4 md:grid-cols-2">
           <div className="md:col-span-2">

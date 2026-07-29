@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { FiPlus, FiSearch, FiTrash2, FiEdit3, FiPackage } from 'react-icons/fi'
 import toast from 'react-hot-toast'
-import Topbar from '../components/Topbar'
 import api from '../services/api'
 import { formatCurrency } from '../utils/formatters'
 
@@ -94,7 +93,6 @@ export default function ProductsPage() {
 
   return (
     <div className="space-y-6">
-      <Topbar title="Products" subtitle="Manage inventory and pricing" />
       <div className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-950">
         <div className="mb-5 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div className="flex flex-1 gap-3">

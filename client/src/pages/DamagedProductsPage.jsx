@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import toast from 'react-hot-toast'
 import { FiAlertTriangle, FiDownload, FiPrinter, FiSearch, FiTrash2 } from 'react-icons/fi'
-import Topbar from '../components/Topbar'
 import api from '../services/api'
 import { getFallbackData } from '../services/fallbackData'
 import { formatCurrency, formatDate } from '../utils/formatters'
@@ -130,8 +129,6 @@ export default function DamagedProductsPage() {
 
   return (
     <div className="space-y-6">
-      <Topbar title="Damaged Products" subtitle="Track damaged stock and financial loss" />
-
       <div className="grid gap-6 xl:grid-cols-[0.9fr_1.1fr]">
         <div className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-950">
           <div className="mb-4 flex items-center gap-2">

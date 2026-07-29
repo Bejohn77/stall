@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
 import { FiPlus, FiTrash2, FiDollarSign, FiCalendar, FiFileText } from 'react-icons/fi'
-import Topbar from '../components/Topbar'
 import api from '../services/api'
 import { formatCurrency, formatDate } from '../utils/formatters'
 
@@ -81,8 +80,6 @@ export default function MonthlyCostPage() {
 
   return (
     <div className="space-y-6">
-      <Topbar title="Monthly Cost" subtitle="Track business expenses and review monthly spend" />
-
       <div className="grid gap-6 xl:grid-cols-[0.95fr_1.05fr]">
         <div className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-950">
           <div className="mb-5 flex items-center justify-between">
