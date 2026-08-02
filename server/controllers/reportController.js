@@ -6,16 +6,36 @@ const { getMode, getStore } = require('../utils/store')
 
 function buildDateRange(type, from, to) {
   const now = new Date()
-  const start = new Date(now)
-  const end = new Date(now)
+  const bangladeshTime = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Dhaka',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false,
+  })
+  const parts = bangladeshTime.formatToParts(now)
+  const partMap = Object.fromEntries(parts.map((part) => [part.type, part.value]))
+  const bangladeshNow = new Date(
+    Number(partMap.year),
+    Number(partMap.month) - 1,
+    Number(partMap.day),
+    Number(partMap.hour),
+    Number(partMap.minute),
+    Number(partMap.second),
+  )
+  const start = new Date(bangladeshNow)
+  const end = new Date(bangladeshNow)
 
   if (type === 'daily') {
     start.setHours(0, 0, 0, 0)
     end.setHours(23, 59, 59, 999)
   } else if (type === 'weekly') {
-    const day = now.getDay()
+    const day = bangladeshNow.getDay()
     const diff = day === 0 ? -6 : 1 - day
-    start.setDate(now.getDate() + diff)
+    start.setDate(bangladeshNow.getDate() + diff)
     start.setHours(0, 0, 0, 0)
     end.setDate(start.getDate() + 6)
     end.setHours(23, 59, 59, 999)
