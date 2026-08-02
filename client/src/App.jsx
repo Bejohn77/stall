@@ -11,6 +11,7 @@ import SettingsPage from './pages/SettingsPage'
 import MonthlyCostPage from './pages/MonthlyCostPage'
 import UserManagementPage from './pages/UserManagementPage'
 import LoginPage from './pages/auth/LoginPage'
+import ProtectedRoute from './components/ProtectedRoute'
 import { useAuth } from './context/AuthContext'
 import { Navigate } from 'react-router-dom'
 
@@ -29,7 +30,7 @@ export default function App() {
       <Route path="/login" element={user ? <Navigate to="/" replace /> : <LoginPage />} />
       <Route element={<MainLayout />}>
         <Route path="/" element={user ? (isAdmin ? <DashboardPage /> : <Navigate to="/sales/new" replace />) : <Navigate to="/login" replace />} />
-        <Route path="/products" element={isAdmin ? <ProductsPage /> : (user ? <Navigate to="/sales/new" replace /> : <Navigate to="/login" replace />)} />
+        <Route path="/products" element={isAdmin ? <ProtectedRoute><ProductsPage /></ProtectedRoute> : (user ? <Navigate to="/sales/new" replace /> : <Navigate to="/login" replace />)} />
         <Route path="/sales/new" element={user && (isAdmin || isSalesman) ? <NewSalePage /> : <Navigate to="/login" replace />} />
         <Route path="/sales/history" element={user && (isAdmin || isSalesman) ? <SalesHistoryPage /> : <Navigate to="/login" replace />} />
         <Route path="/reports" element={isAdmin ? <ReportsPage /> : (user ? <Navigate to="/sales/new" replace /> : <Navigate to="/login" replace />)} />

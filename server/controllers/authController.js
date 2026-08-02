@@ -3,13 +3,18 @@ const bcrypt = require('bcrypt')
 async function verifyProductsPassword(req, res) {
   try {
     const { password } = req.body || {}
-    const expectedHash = process.env.PRODUCTS_PAGE_PASSWORD
+    const configuredPassword = process.env.PRODUCTS_PAGE_PASSWORD
 
-    if (!expectedHash || typeof password !== 'string' || !password.trim()) {
+    if (!configuredPassword || typeof password !== 'string' || !password.trim()) {
       return res.status(400).json({ success: false })
     }
 
-    const isMatch = await bcrypt.compare(password, expectedHash)
+    const isMatch = await bcrypt.compare(password, configuredPassword).catch(() => false)
+
+    if (!isMatch && configuredPassword === password) {
+      return res.json({ success: true })
+    }
+
     return res.json({ success: isMatch })
   } catch (error) {
     console.error('Products password verification failed:', error.message)
