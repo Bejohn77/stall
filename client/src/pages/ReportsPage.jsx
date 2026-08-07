@@ -141,19 +141,22 @@ export default function ReportsPage() {
                     <p className="text-sm text-slate-500">Overview for the selected month</p>
                   </div>
                 </div>
-                <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
                   <div className="rounded-[20px] bg-slate-50 p-4 dark:bg-slate-900"><p className="text-sm text-slate-500">Monthly Sales Profit</p><p className="mt-2 text-xl font-semibold">{formatCurrency(report.monthlySummary?.totalMonthlySalesProfit || 0)}</p></div>
                   <div className="rounded-[20px] bg-slate-50 p-4 dark:bg-slate-900"><p className="text-sm text-slate-500">Monthly Service Revenue</p><p className="mt-2 text-xl font-semibold">{formatCurrency(report.monthlySummary?.totalMonthlyServiceRevenue || 0)}</p></div>
-                  <div className="rounded-[20px] bg-slate-50 p-4 dark:bg-slate-900"><p className="text-sm text-slate-500">Total Monthly Costs</p><p className="mt-2 text-xl font-semibold">{formatCurrency(report.monthlySummary?.totalMonthlyCosts || 0)}</p></div>
-                  <div className="rounded-[20px] bg-slate-50 p-4 dark:bg-slate-900"><p className="text-sm text-slate-500">Total Damaged Product Loss</p><p className="mt-2 text-xl font-semibold">{formatCurrency(report.monthlySummary?.totalDamagedProductLoss || 0)}</p></div>
-                  <div className="rounded-[20px] bg-slate-50 p-4 dark:bg-slate-900"><p className="text-sm text-slate-500">Total Monthly Net Profit</p><p className="mt-2 text-xl font-semibold">{formatCurrency(report.monthlySummary?.totalMonthlyNetProfit || 0)}</p></div>
+                  <div className="rounded-[20px] bg-slate-50 p-4 dark:bg-slate-900"><p className="text-sm text-slate-500">Monthly Discount</p><p className="mt-2 text-xl font-semibold">{formatCurrency(report.monthlySummary?.monthlyDiscount || 0)}</p></div>
+                  <div className="rounded-[20px] bg-slate-50 p-4 dark:bg-slate-900"><p className="text-sm text-slate-500">Monthly Business Cost</p><p className="mt-2 text-xl font-semibold">{formatCurrency(report.monthlySummary?.monthlyBusinessCost || 0)}</p></div>
+                  <div className="rounded-[20px] bg-slate-50 p-4 dark:bg-slate-900"><p className="text-sm text-slate-500">Monthly Damage Cost</p><p className="mt-2 text-xl font-semibold">{formatCurrency(report.monthlySummary?.monthlyDamageCost || 0)}</p></div>
+                  <div className="rounded-[20px] bg-slate-50 p-4 dark:bg-slate-900"><p className="text-sm text-slate-500">Monthly Gross Profit</p><p className="mt-2 text-xl font-semibold">{formatCurrency(report.monthlySummary?.monthlyGrossProfit || 0)}</p></div>
+                  <div className="rounded-[20px] bg-slate-50 p-4 dark:bg-slate-900"><p className="text-sm text-slate-500">Monthly Net Profit</p><p className="mt-2 text-xl font-semibold">{formatCurrency(report.monthlySummary?.monthlyNetProfit || 0)}</p></div>
                 </div>
               </div>
             )}
 
             <div className="mb-6 grid gap-4 md:grid-cols-3">
               <div className="rounded-[20px] bg-slate-50 p-4 dark:bg-slate-900"><p className="text-sm text-slate-500">Sales</p><p className="mt-2 text-xl font-semibold">{formatCurrency(report.summary.sales)}</p></div>
-              <div className="rounded-[20px] bg-slate-50 p-4 dark:bg-slate-900"><p className="text-sm text-slate-500">Profit</p><p className="mt-2 text-xl font-semibold">{formatCurrency(report.summary.profit)}</p></div>
+              <div className="rounded-[20px] bg-slate-50 p-4 dark:bg-slate-900"><p className="text-sm text-slate-500">Gross Profit</p><p className="mt-2 text-xl font-semibold">{formatCurrency(report.summary.grossProfit || 0)}</p></div>
+              <div className="rounded-[20px] bg-slate-50 p-4 dark:bg-slate-900"><p className="text-sm text-slate-500">Net Profit</p><p className="mt-2 text-xl font-semibold">{formatCurrency(report.summary.profit)}</p></div>
               <div className="rounded-[20px] bg-slate-50 p-4 dark:bg-slate-900"><p className="text-sm text-slate-500">Products Sold</p><p className="mt-2 text-xl font-semibold">{report.summary.productsSold}</p></div>
             </div>
 

@@ -2,14 +2,74 @@ function calculateInvoiceProfit(items = []) {
   return (items || []).reduce((profit, item) => {
     const quantity = Number(item.quantity || 0)
     const unitPrice = Number(item.unitPrice || 0)
+    const discount = Number(item.discount || 0)
 
     if (item.type === 'service') {
-      return profit + quantity * unitPrice
+      const lineTotal = quantity * unitPrice
+      const itemDiscount = Math.min(discount, lineTotal)
+      return profit + Math.max(0, lineTotal - itemDiscount)
     }
 
     const buyingPrice = Number(item.buyingPrice || 0)
-    return profit + (unitPrice - buyingPrice) * quantity
+    const grossProfit = (unitPrice - buyingPrice) * quantity
+    const itemDiscount = Math.min(discount, quantity * unitPrice)
+    return profit + Math.max(0, grossProfit - itemDiscount)
   }, 0)
+}
+
+function calculateSaleGrossProfit(sale = {}) {
+  const normalizedItems = (sale?.items || []).filter((item) => item && typeof item === 'object')
+  if (normalizedItems.length) {
+    return normalizedItems.reduce((profit, item) => {
+      const quantity = Number(item.quantity || 0)
+      const unitPrice = Number(item.unitPrice || 0)
+
+      if (item.type === 'service') {
+        return profit + quantity * unitPrice
+      }
+
+      const buyingPrice = Number(item.buyingPrice || 0)
+      return profit + Math.max(0, (unitPrice - buyingPrice) * quantity)
+    }, 0)
+  }
+
+  return Number.isFinite(Number(sale?.profit)) ? Number(sale.profit) : 0
+}
+
+function calculateSaleDiscount(sale = {}) {
+  const normalizedItems = (sale?.items || []).filter((item) => item && typeof item === 'object')
+  if (normalizedItems.length) {
+    return normalizedItems.reduce((sum, item) => sum + Number(item.discount || 0), 0)
+  }
+
+  return Number.isFinite(Number(sale?.discount)) ? Number(sale.discount) : 0
+}
+
+function calculateSaleProfit(sale = {}) {
+  const normalizedItems = (sale?.items || []).filter((item) => item && typeof item === 'object')
+  if (normalizedItems.length) {
+    return calculateInvoiceProfit(normalizedItems)
+  }
+  return Number.isFinite(Number(sale?.profit)) ? Number(sale.profit) : 0
+}
+
+function calculatePeriodProfitMetrics({ sales = [], damages = [], costs = [] } = {}) {
+  const salesProfitValue = (sales || []).reduce((sum, sale) => sum + calculateSaleProfit(sale), 0)
+  const salesGrossProfitValue = (sales || []).reduce((sum, sale) => sum + calculateSaleGrossProfit(sale), 0)
+  const salesDiscountValue = (sales || []).reduce((sum, sale) => sum + calculateSaleDiscount(sale), 0)
+  const damageCostValue = (damages || []).reduce((sum, damage) => sum + Number(damage?.totalLoss || damage?.amount || 0), 0)
+  const businessCostValue = (costs || []).reduce((sum, cost) => sum + Number(cost?.amount || 0), 0)
+  const grossProfitValue = salesGrossProfitValue
+  const netProfitValue = grossProfitValue - salesDiscountValue - damageCostValue - businessCostValue
+
+  return {
+    salesProfitValue,
+    salesDiscountValue,
+    damageCostValue,
+    businessCostValue,
+    grossProfitValue,
+    netProfitValue,
+  }
 }
 
 function calculateInvoiceSummary(items = [], paidAmount = 0) {
@@ -109,4 +169,4 @@ function validateInvoicePayload(payload) {
   return { ok: true }
 }
 
-module.exports = { calculateInvoiceProfit, calculateInvoiceSummary, getInventoryUpdates, validateInvoicePayload }
+module.exports = { calculateInvoiceProfit, calculateSaleGrossProfit, calculateSaleDiscount, calculateSaleProfit, calculatePeriodProfitMetrics, calculateInvoiceSummary, getInventoryUpdates, validateInvoicePayload }

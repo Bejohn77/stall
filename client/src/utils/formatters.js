@@ -1,5 +1,7 @@
 export function formatCurrency(value, currency = '৳') {
-  return `${currency}${Number(value || 0).toLocaleString('en-BD', { maximumFractionDigits: 2 })}`
+  const parsedValue = Number(value)
+  const safeValue = Number.isFinite(parsedValue) ? parsedValue : 0
+  return `${currency}${safeValue.toLocaleString('en-BD', { maximumFractionDigits: 2 })}`
 }
 
 export function formatDate(dateString) {

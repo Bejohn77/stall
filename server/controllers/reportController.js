@@ -2,6 +2,7 @@ const Sale = require('../models/Sale')
 const ServiceBill = require('../models/ServiceBill')
 const Damage = require('../models/Damage')
 const MonthlyCost = require('../models/MonthlyCost')
+const { calculateSaleGrossProfit, calculateSaleDiscount, calculateSaleProfit, calculatePeriodProfitMetrics } = require('../utils/invoice')
 const { getMode, getStore } = require('../utils/store')
 
 function buildDateRange(type, from, to) {
@@ -110,7 +111,15 @@ function buildMonthlySummaryRange() {
 }
 
 function buildMonthlySummary(monthlySales = [], monthlyServiceBills = [], monthlyCosts = [], damageEntries = []) {
-  const totalMonthlySalesProfit = monthlySales.reduce((sum, sale) => sum + Number(sale.profit || 0), 0)
+  const profitMetrics = calculatePeriodProfitMetrics({
+    sales: monthlySales,
+    damages: damageEntries,
+    costs: monthlyCosts,
+  })
+  const totalMonthlySalesProfit = profitMetrics.salesProfitValue
+  const monthlyDiscount = monthlySales.reduce((sum, sale) => sum + calculateSaleDiscount(sale), 0)
+  const monthlyBusinessCost = monthlyCosts.reduce((sum, cost) => sum + Number(cost.amount || 0), 0)
+  const monthlyDamageCost = damageEntries.reduce((sum, damage) => sum + Number(damage.quantity || 0) * Number(damage.costPrice || 0), 0)
   const serviceRevenueFromBills = monthlyServiceBills.reduce((sum, bill) => {
     const billTotal = (bill.items || []).reduce((lineSum, item) => lineSum + calculateServiceLineRevenue(item), 0)
     return sum + (Number(bill.subtotal || 0) || billTotal)
@@ -122,16 +131,24 @@ function buildMonthlySummary(monthlySales = [], monthlyServiceBills = [], monthl
   const totalMonthlyServiceRevenue = Number.isFinite(serviceRevenueFromBills + serviceRevenueFromSales)
     ? (serviceRevenueFromBills + serviceRevenueFromSales)
     : 0
-  const totalMonthlyCosts = monthlyCosts.reduce((sum, cost) => sum + Number(cost.amount || 0), 0)
-  const totalDamagedProductLoss = damageEntries.reduce((sum, damage) => sum + Number(damage.quantity || 0) * Number(damage.costPrice || 0), 0)
-  const totalMonthlyNetProfit = (totalMonthlySalesProfit + totalMonthlyServiceRevenue) - (totalMonthlyCosts + totalDamagedProductLoss)
+  const totalMonthlyCosts = monthlyBusinessCost
+  const totalDamagedProductLoss = monthlyDamageCost
+  const monthlySalesGrossProfit = monthlySales.reduce((sum, sale) => sum + calculateSaleGrossProfit(sale), 0)
+  const monthlyGrossProfit = monthlySalesGrossProfit + totalMonthlyServiceRevenue
+  const monthlyNetProfit = monthlyGrossProfit - monthlyDiscount - monthlyBusinessCost - monthlyDamageCost
 
   return {
     totalMonthlySalesProfit,
     totalMonthlyServiceRevenue,
     totalMonthlyCosts,
     totalDamagedProductLoss,
-    totalMonthlyNetProfit,
+    monthlyDiscount,
+    monthlyBusinessCost,
+    monthlyDamageCost,
+    monthlyGrossProfit,
+    monthlyNetProfit,
+    totalMonthlyGrossProfit: monthlyGrossProfit,
+    totalMonthlyNetProfit: monthlyNetProfit,
   }
 }
 
@@ -148,6 +165,8 @@ async function getReport(req, res, next) {
     let monthlyServiceBills = []
     let monthlyCosts = []
     let damageEntries = []
+    let rangeCosts = []
+    let rangeDamageEntries = []
     if (getMode() === 'memory') {
       const store = getStore()
       sales = store.sales.filter((sale) => new Date(sale.createdAt) >= range.start && new Date(sale.createdAt) <= range.end)
@@ -157,6 +176,8 @@ async function getReport(req, res, next) {
       monthlyServiceBills = (store.serviceBills || []).filter((bill) => new Date(bill.createdAt) >= monthlyRange.start && new Date(bill.createdAt) <= monthlyRange.end)
       monthlyCosts = (store.monthlyCosts || []).filter((cost) => new Date(cost.date) >= monthlyRange.start && new Date(cost.date) <= monthlyRange.end)
       damageEntries = (store.damages || []).filter((damage) => new Date(damage.createdAt) >= monthlyRange.start && new Date(damage.createdAt) <= monthlyRange.end)
+      rangeCosts = (store.monthlyCosts || []).filter((cost) => new Date(cost.date) >= range.start && new Date(cost.date) <= range.end)
+      rangeDamageEntries = (store.damages || []).filter((damage) => new Date(damage.createdAt) >= range.start && new Date(damage.createdAt) <= range.end)
     } else {
       sales = await Sale.find({ createdAt: { $gte: range.start, $lte: range.end } }).sort({ createdAt: 1 })
       serviceBills = await ServiceBill.find({ createdAt: { $gte: range.start, $lte: range.end } }).sort({ createdAt: 1 })
@@ -164,18 +185,27 @@ async function getReport(req, res, next) {
       monthlyServiceBills = await ServiceBill.find({ createdAt: { $gte: monthlyRange.start, $lte: monthlyRange.end } }).sort({ createdAt: 1 })
       monthlyCosts = await MonthlyCost.find({ date: { $gte: monthlyRange.start, $lte: monthlyRange.end } }).sort({ date: 1 })
       damageEntries = await Damage.find({ createdAt: { $gte: monthlyRange.start, $lte: monthlyRange.end } }).sort({ createdAt: 1 })
+      rangeCosts = await MonthlyCost.find({ date: { $gte: range.start, $lte: range.end } }).sort({ date: 1 })
+      rangeDamageEntries = await Damage.find({ createdAt: { $gte: range.start, $lte: range.end } }).sort({ createdAt: 1 })
     }
 
+    const rangeProfitMetrics = calculatePeriodProfitMetrics({
+      sales,
+      damages: rangeDamageEntries,
+      costs: rangeCosts,
+    })
     const summary = {
-      sales: sales.reduce((sum, sale) => sum + sale.grandTotal, 0),
-      profit: sales.reduce((sum, sale) => sum + sale.profit, 0),
-      productsSold: sales.reduce((sum, sale) => sum + sale.items.reduce((count, item) => count + item.quantity, 0), 0),
+      sales: sales.reduce((sum, sale) => sum + Number(sale.grandTotal || 0), 0),
+      grossProfit: rangeProfitMetrics.grossProfitValue,
+      profit: rangeProfitMetrics.netProfitValue,
+      netProfit: rangeProfitMetrics.netProfitValue,
+      productsSold: sales.reduce((sum, sale) => sum + (sale.items || []).reduce((count, item) => count + Number(item.quantity || 0), 0), 0),
     }
 
     const monthlySummary = buildMonthlySummary(monthlySales, monthlyServiceBills, monthlyCosts, damageEntries)
 
     const chartData = sales.length
-      ? sales.map((sale) => ({ name: sale.invoiceNumber, revenue: sale.grandTotal, profit: sale.profit }))
+      ? sales.map((sale) => ({ name: sale.invoiceNumber, revenue: Number(sale.grandTotal || 0), profit: calculateSaleProfit(sale) }))
       : [{ name: 'No data', revenue: 0, profit: 0 }]
 
     const bestProducts = sales.flatMap((sale) => sale.items).reduce((acc, item) => {

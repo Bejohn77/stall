@@ -56,6 +56,26 @@ test('service lines contribute their full amount to profit', () => {
   assert.equal(calculateInvoiceProfit(items), 80 + 150)
 })
 
+test('discounts reduce profit for both products and services', () => {
+  const items = [
+    {
+      type: 'product',
+      quantity: 2,
+      unitPrice: 120,
+      buyingPrice: 80,
+      discount: 20,
+    },
+    {
+      type: 'service',
+      quantity: 1,
+      unitPrice: 100,
+      discount: 15,
+    },
+  ]
+
+  assert.equal(calculateInvoiceProfit(items), 145)
+})
+
 test('custom service validation rejects incomplete entries', () => {
   const result = validateInvoicePayload({
     items: [
