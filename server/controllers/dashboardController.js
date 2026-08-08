@@ -118,8 +118,12 @@ function buildCostBreakdown(costs = []) {
     .map(([name, total]) => ({ name, total }))
 }
 
+function getSaleValue(sale = {}) {
+  return toNumber(sale.grandTotal ?? sale.subtotal ?? 0)
+}
+
 function buildPeriodMetrics(sales = [], damages = [], costs = []) {
-  const salesValue = sales.reduce((sum, sale) => sum + toNumber(sale.subtotal || sale.grandTotal + (sale.discount || 0)), 0)
+  const salesValue = sales.reduce((sum, sale) => sum + getSaleValue(sale), 0)
   const discountValue = sales.reduce((sum, sale) => sum + toNumber(sale.discount || 0), 0)
   const productCostValue = sales.reduce((sum, sale) => {
     const saleCost = (sale.items || []).reduce((itemSum, item) => {
@@ -183,7 +187,7 @@ function buildTrendData(sales = [], labelPrefix = 'day') {
     const end = new Date(currentDate)
     end.setHours(23, 59, 59, 999)
     const matchingSales = sales.filter((sale) => new Date(sale.createdAt) >= start && new Date(sale.createdAt) <= end)
-    const periodValue = matchingSales.reduce((sum, sale) => sum + toNumber(sale.subtotal || sale.grandTotal + (sale.discount || 0)), 0)
+    const periodValue = matchingSales.reduce((sum, sale) => sum + getSaleValue(sale), 0)
     data.push({ name: labelPrefix === 'month' ? currentDate.toLocaleDateString('en-CA', { month: 'short' }) : formatLabel(currentDate), sales: periodValue })
   }
   return data
@@ -197,7 +201,7 @@ function buildRevenueChart(sales = []) {
     const start = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1)
     const end = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0, 23, 59, 59, 999)
     const matchingSales = sales.filter((sale) => new Date(sale.createdAt) >= start && new Date(sale.createdAt) <= end)
-    const salesValue = matchingSales.reduce((sum, sale) => sum + toNumber(sale.subtotal || sale.grandTotal + (sale.discount || 0)), 0)
+    const salesValue = matchingSales.reduce((sum, sale) => sum + getSaleValue(sale), 0)
     const profitValue = matchingSales.reduce((sum, sale) => sum + calculateSaleProfit(sale), 0)
     data.push({ name: currentDate.toLocaleDateString('en-CA', { month: 'short' }), revenue: salesValue, profit: profitValue })
   }
@@ -435,4 +439,4 @@ async function getDashboard(req, res, next) {
   }
 }
 
-module.exports = { getDashboard, calculateNetProfit, calculateProfitValue, calculatePercentageChange }
+module.exports = { getDashboard, calculateNetProfit, calculateProfitValue, calculatePercentageChange, getSaleValue }
