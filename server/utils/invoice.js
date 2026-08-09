@@ -57,10 +57,15 @@ function calculatePeriodProfitMetrics({ sales = [], damages = [], costs = [] } =
   const salesProfitValue = (sales || []).reduce((sum, sale) => sum + calculateSaleProfit(sale), 0)
   const salesGrossProfitValue = (sales || []).reduce((sum, sale) => sum + calculateSaleGrossProfit(sale), 0)
   const salesDiscountValue = (sales || []).reduce((sum, sale) => sum + calculateSaleDiscount(sale), 0)
-  const damageCostValue = (damages || []).reduce((sum, damage) => sum + Number(damage?.totalLoss || damage?.amount || 0), 0)
+  const damageCostValue = (damages || []).reduce((sum, damage) => sum + Number(damage?.totalLoss || (damage?.quantity && damage?.costPrice ? Number(damage.quantity) * Number(damage.costPrice) : 0) || damage?.amount || 0), 0)
   const businessCostValue = (costs || []).reduce((sum, cost) => sum + Number(cost?.amount || 0), 0)
-  const grossProfitValue = salesGrossProfitValue
-  const netProfitValue = grossProfitValue - salesDiscountValue - damageCostValue - businessCostValue
+  // Gross profit should reflect Total Sales - Product Cost
+  // salesGrossProfitValue = (Total Product Selling Price - Total Product Cost) + Service Revenue (from sales)
+  // salesDiscountValue = Total Discount
+  // Therefore Gross Profit = salesGrossProfitValue - salesDiscountValue
+  const grossProfitValue = salesGrossProfitValue - salesDiscountValue
+  // Net Profit = Gross Profit - Damage Cost - Business/Operating Cost
+  const netProfitValue = grossProfitValue - damageCostValue - businessCostValue
 
   return {
     salesProfitValue,

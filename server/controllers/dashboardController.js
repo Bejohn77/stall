@@ -77,8 +77,10 @@ function summarizeServiceActivity(bills) {
 }
 
 function calculateProfitValue({ salesValue = 0, discountValue = 0, productCostValue = 0, damageCostValue = 0, businessCostValue = 0 }) {
+  // Gross Profit = Total Sales - Total Product Cost (COGS)
   const grossProfitValue = toNumber(salesValue) - toNumber(productCostValue)
-  return grossProfitValue - toNumber(discountValue) - toNumber(damageCostValue) - toNumber(businessCostValue)
+  // Net Profit = Gross Profit - Operating Cost - Damage Cost
+  return toNumber(grossProfitValue) - toNumber(businessCostValue) - toNumber(damageCostValue)
 }
 
 function calculatePercentageChange(current, previous) {
@@ -208,8 +210,9 @@ function buildRevenueChart(sales = []) {
   return data
 }
 
-function calculateNetProfit(grossProfit, businessCostValue = 0) {
-  return toNumber(grossProfit) - toNumber(businessCostValue)
+function calculateNetProfit(grossProfit, businessCostValue = 0, damageCostValue = 0, discountValue = 0) {
+  // Net Profit = Gross Profit - Discount - Damage Cost - Operating/Business Cost
+  return toNumber(grossProfit) - toNumber(discountValue) - toNumber(damageCostValue) - toNumber(businessCostValue)
 }
 
 function buildComparison(current, previous) {
@@ -274,7 +277,7 @@ async function getDashboard(req, res, next) {
         monthlyProfit: monthlyMetrics.profitValue,
         monthlyCost: monthlyMetrics.businessCostValue,
         totalDiscounts: allTimeDiscount,
-        netProfit: calculateNetProfit(monthlyMetrics.grossProfitValue, monthlyMetrics.businessCostValue),
+        netProfit: monthlyMetrics.netProfitValue,
         totalProducts,
         totalStockQuantity: store.products.reduce((sum, product) => sum + toNumber(product.stockQuantity || 0), 0),
         lowStockProducts,
@@ -303,7 +306,7 @@ async function getDashboard(req, res, next) {
           discount: monthlyMetrics.discountValue,
           cost: monthlyMetrics.businessCostValue,
           damage: monthlyMetrics.damageCostValue,
-          netProfit: calculateNetProfit(monthlyMetrics.grossProfitValue, monthlyMetrics.businessCostValue),
+          netProfit: monthlyMetrics.netProfitValue,
         },
         comparisons: {
           sales: buildComparison(todayMetrics.salesValue, yesterdayMetrics.salesValue),
@@ -377,7 +380,7 @@ async function getDashboard(req, res, next) {
       monthlyProfit: monthlyMetrics.profitValue,
       monthlyCost: monthlyMetrics.businessCostValue,
       totalDiscounts: allTimeDiscount,
-      netProfit: calculateNetProfit(monthlyMetrics.grossProfitValue, monthlyMetrics.businessCostValue),
+      netProfit: monthlyMetrics.netProfitValue,
       totalProducts: inventoryCount,
       totalStockQuantity: totalStockQuantity[0]?.total || 0,
       lowStockProducts,
@@ -406,7 +409,7 @@ async function getDashboard(req, res, next) {
         discount: monthlyMetrics.discountValue,
         cost: monthlyMetrics.businessCostValue,
         damage: monthlyMetrics.damageCostValue,
-        netProfit: calculateNetProfit(monthlyMetrics.grossProfitValue, monthlyMetrics.businessCostValue),
+        netProfit: monthlyMetrics.netProfitValue,
       },
       comparisons: {
         sales: buildComparison(todayMetrics.salesValue, yesterdayMetrics.salesValue),

@@ -56,9 +56,21 @@ test('monthly summary calculates net profit from gross profit minus discount, bu
     [{ quantity: 1, costPrice: 5 }],
   )
 
-  assert.equal(summary.monthlyGrossProfit, 60)
+  assert.equal(summary.monthlyGrossProfit, 50)
   assert.equal(summary.monthlyDiscount, 10)
   assert.equal(summary.monthlyBusinessCost, 20)
   assert.equal(summary.monthlyDamageCost, 5)
   assert.equal(summary.monthlyNetProfit, 25)
+})
+
+test('monthly summary uses the recorded damage loss when present', () => {
+  const summary = buildMonthlySummary(
+    [{ items: [{ type: 'product', quantity: 1, unitPrice: 100, discount: 0, buyingPrice: 40 }] }],
+    [],
+    [],
+    [{ quantity: 2, costPrice: 10, totalLoss: 25 }],
+  )
+
+  assert.equal(summary.monthlyDamageCost, 25)
+  assert.equal(summary.monthlyNetProfit, 35)
 })

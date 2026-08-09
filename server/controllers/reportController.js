@@ -117,25 +117,29 @@ function buildMonthlySummary(monthlySales = [], monthlyServiceBills = [], monthl
     costs: monthlyCosts,
   })
   const totalMonthlySalesProfit = profitMetrics.salesProfitValue
-  const monthlyDiscount = monthlySales.reduce((sum, sale) => sum + calculateSaleDiscount(sale), 0)
-  const monthlyBusinessCost = monthlyCosts.reduce((sum, cost) => sum + Number(cost.amount || 0), 0)
-  const monthlyDamageCost = damageEntries.reduce((sum, damage) => sum + Number(damage.quantity || 0) * Number(damage.costPrice || 0), 0)
+  const monthlyDiscount = profitMetrics.salesDiscountValue
+  const monthlyBusinessCost = profitMetrics.businessCostValue
+  const monthlyDamageCost = profitMetrics.damageCostValue
+  // service revenue from explicit service bills (not included in sales profit metrics)
   const serviceRevenueFromBills = monthlyServiceBills.reduce((sum, bill) => {
     const billTotal = (bill.items || []).reduce((lineSum, item) => lineSum + calculateServiceLineRevenue(item), 0)
     return sum + (Number(bill.subtotal || 0) || billTotal)
   }, 0)
-  const serviceRevenueFromSales = monthlySales.reduce((sum, sale) => {
-    const serviceItems = (sale.items || []).filter((item) => item.type === 'service')
-    return sum + serviceItems.reduce((lineSum, item) => lineSum + calculateServiceLineRevenue(item), 0)
-  }, 0)
-  const totalMonthlyServiceRevenue = Number.isFinite(serviceRevenueFromBills + serviceRevenueFromSales)
-    ? (serviceRevenueFromBills + serviceRevenueFromSales)
-    : 0
+    const serviceRevenueFromSales = monthlySales.reduce((sum, sale) => {
+      const serviceItems = (sale.items || []).filter((item) => item.type === 'service')
+      return sum + serviceItems.reduce((lineSum, item) => lineSum + calculateServiceLineRevenue(item), 0)
+    }, 0)
+    const totalMonthlyServiceRevenue = Number.isFinite(serviceRevenueFromBills + serviceRevenueFromSales)
+      ? (serviceRevenueFromBills + serviceRevenueFromSales)
+      : 0
+  // total service revenue already included in profitMetrics (from sales). Add only bills' service revenue.
   const totalMonthlyCosts = monthlyBusinessCost
   const totalDamagedProductLoss = monthlyDamageCost
-  const monthlySalesGrossProfit = monthlySales.reduce((sum, sale) => sum + calculateSaleGrossProfit(sale), 0)
-  const monthlyGrossProfit = monthlySalesGrossProfit + totalMonthlyServiceRevenue
-  const monthlyNetProfit = monthlyGrossProfit - monthlyDiscount - monthlyBusinessCost - monthlyDamageCost
+    const monthlyGrossProfit = profitMetrics.grossProfitValue + serviceRevenueFromBills
+    const monthlyNetProfit = profitMetrics.netProfitValue + serviceRevenueFromBills // profitMetrics already includes service revenue from sales; add only bills
+
+  // If service bills contribute revenue, ensure gross/net include them appropriately
+  // monthlyGrossProfit already adds service bills revenue; monthlyNetProfit should deduct operating and damage as profitMetrics does, then add service bills revenue (they have no associated product cost here)
 
   return {
     totalMonthlySalesProfit,
