@@ -19,14 +19,17 @@ function buildDateRange(type, from, to) {
   })
   const parts = bangladeshTime.formatToParts(now)
   const partMap = Object.fromEntries(parts.map((part) => [part.type, part.value]))
-  const bangladeshNow = new Date(
-    Number(partMap.year),
-    Number(partMap.month) - 1,
-    Number(partMap.day),
-    Number(partMap.hour),
-    Number(partMap.minute),
-    Number(partMap.second),
-  )
+  // Construct an instant that represents the Bangladeshi local time correctly across server timezones.
+  // Compute UTC timestamp for the local Dhaka time and create Date from that UTC ms.
+  const year = Number(partMap.year)
+  const month = Number(partMap.month) - 1
+  const day = Number(partMap.day)
+  const hour = Number(partMap.hour)
+  const minute = Number(partMap.minute)
+  const second = Number(partMap.second)
+  const DHAKA_OFFSET_MS = 6 * 60 * 60 * 1000 // +06:00
+  const bangladeshUtcMs = Date.UTC(year, month, day, hour, minute, second) - DHAKA_OFFSET_MS
+  const bangladeshNow = new Date(bangladeshUtcMs)
   const start = new Date(bangladeshNow)
   const end = new Date(bangladeshNow)
 
