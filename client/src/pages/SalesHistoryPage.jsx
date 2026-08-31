@@ -11,6 +11,7 @@ export default function SalesHistoryPage() {
   const [dateFilter, setDateFilter] = useState('')
   const [loading, setLoading] = useState(true)
   const [settings, setSettings] = useState({ storeName: '', address: '', phone: '' })
+  const [products, setProducts] = useState([])
   const [editingSale, setEditingSale] = useState(null)
   const [editForm, setEditForm] = useState({
     customerName: '',
@@ -18,6 +19,13 @@ export default function SalesHistoryPage() {
     paymentMethod: 'Cash',
     paidAmount: '',
     items: [],
+  })
+  const [newProductForm, setNewProductForm] = useState({
+    productId: '',
+    quantity: 1,
+    unitPrice: '',
+    discount: 0,
+    tax: 0,
   })
 
   const fetchSales = async () => {
@@ -41,7 +49,17 @@ export default function SalesHistoryPage() {
       }
     }
 
+    const loadProducts = async () => {
+      try {
+        const { data } = await api.get('/products')
+        setProducts(data || [])
+      } catch {
+        setProducts([])
+      }
+    }
+
     loadSettings()
+    loadProducts()
   }, [])
 
   const filteredSales = useMemo(() => {
@@ -87,6 +105,79 @@ export default function SalesHistoryPage() {
       items: current.items.map((item, itemIndex) => itemIndex === index ? { ...item, [field]: field === 'name' ? value : Number(value || 0) } : item),
     }))
   }
+
+  const removeEditItem = (index) => {
+    setEditForm((current) => ({
+      ...current,
+      items: current.items.filter((_, itemIndex) => itemIndex !== index),
+    }))
+  }
+
+  const addProductToEdit = () => {
+    if (!newProductForm.productId) {
+      toast.error('Select a product to add')
+      return
+    }
+
+    const selectedProduct = products.find((product) => product._id === newProductForm.productId)
+    if (!selectedProduct) {
+      toast.error('Selected product could not be found')
+      return
+    }
+
+    const quantity = Number(newProductForm.quantity || 0)
+    if (quantity <= 0) {
+      toast.error('Product quantity must be greater than zero')
+      return
+    }
+
+    const unitPrice = Number(newProductForm.unitPrice || selectedProduct.sellingPrice || 0)
+    const discount = Number(newProductForm.discount || 0)
+    const tax = Number(newProductForm.tax || 0)
+
+    setEditForm((current) => ({
+      ...current,
+      items: [
+        ...current.items,
+        {
+          type: 'product',
+          productId: selectedProduct._id,
+          serviceId: null,
+          name: selectedProduct.name,
+          description: '',
+          quantity,
+          unitPrice,
+          discount,
+          tax,
+        },
+      ],
+    }))
+
+    setNewProductForm({
+      productId: '',
+      quantity: 1,
+      unitPrice: '',
+      discount: 0,
+      tax: 0,
+    })
+  }
+
+  const editSummary = useMemo(() => {
+    const subtotal = editForm.items.reduce((sum, item) => sum + Number(item.quantity || 0) * Number(item.unitPrice || 0), 0)
+    const discount = editForm.items.reduce((sum, item) => sum + Math.min(Number(item.discount || 0), Number(item.quantity || 0) * Number(item.unitPrice || 0)), 0)
+    const tax = editForm.items.reduce((sum, item) => sum + Number(item.tax || 0), 0)
+    const grandTotal = Math.max(0, subtotal - discount + tax)
+    const paidAmount = Number(editForm.paidAmount || 0)
+
+    return {
+      subtotal,
+      discount,
+      tax,
+      grandTotal,
+      dueAmount: Math.max(0, grandTotal - paidAmount),
+      change: Math.max(0, paidAmount - grandTotal),
+    }
+  }, [editForm.items, editForm.paidAmount])
 
   const saveEditedInvoice = async () => {
     if (!editingSale) return
@@ -313,7 +404,9 @@ export default function SalesHistoryPage() {
                     <td className="py-4">{formatDate(sale.createdAt)}</td>
                     <td className="py-4">
                       <div className="flex gap-2">
-                        <button onClick={() => openEditModal(sale)} className="rounded-2xl bg-indigo-100 p-2 text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-300"><FiEdit2 /></button>
+                        <button onClick={() => openEditModal(sale)} className="flex items-center gap-1 rounded-2xl bg-indigo-100 px-2 py-2 text-xs font-medium text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-300">
+                          <FiEdit2 /> Edit
+                        </button>
                         <button onClick={() => printInvoice(sale)} className="rounded-2xl bg-slate-100 p-2 text-slate-600 dark:bg-slate-800 dark:text-slate-300"><FiPrinter /></button>
                         <button onClick={() => handleDelete(sale._id)} className="rounded-2xl bg-rose-100 p-2 text-rose-600 dark:bg-rose-900/30 dark:text-rose-300"><FiTrash2 /></button>
                       </div>
@@ -361,10 +454,37 @@ export default function SalesHistoryPage() {
             </div>
 
             <div className="mt-6 space-y-4">
-              <h4 className="font-semibold">Invoice Items</h4>
-              {editForm.items.map((item, index) => (
+              <div className="flex items-center justify-between">
+                <h4 className="font-semibold">Invoice Items</h4>
+                <span className="text-xs text-slate-500">Recalculated live</span>
+              </div>
+
+              <div className="rounded-[20px] border border-slate-200 p-3 dark:border-slate-800">
+                <div className="mb-3 text-sm font-medium text-slate-600 dark:text-slate-300">Add Product</div>
+                <div className="grid gap-3 md:grid-cols-5">
+                  <select value={newProductForm.productId} onChange={(e) => setNewProductForm((current) => ({ ...current, productId: e.target.value }))} className="rounded-xl border border-slate-200 bg-slate-50 px-2 py-2 text-sm dark:border-slate-800 dark:bg-slate-900 md:col-span-2">
+                    <option value="">Choose product</option>
+                    {products.map((product) => (
+                      <option key={product._id} value={product._id}>{product.name}</option>
+                    ))}
+                  </select>
+                  <input type="number" min="1" value={newProductForm.quantity} onChange={(e) => setNewProductForm((current) => ({ ...current, quantity: Number(e.target.value || 0) }))} className="rounded-xl border border-slate-200 bg-slate-50 px-2 py-2 text-sm dark:border-slate-800 dark:bg-slate-900" placeholder="Qty" />
+                  <input type="number" min="0" step="0.01" value={newProductForm.unitPrice} onChange={(e) => setNewProductForm((current) => ({ ...current, unitPrice: e.target.value }))} className="rounded-xl border border-slate-200 bg-slate-50 px-2 py-2 text-sm dark:border-slate-800 dark:bg-slate-900" placeholder="Price" />
+                  <button onClick={addProductToEdit} className="rounded-xl bg-indigo-600 px-3 py-2 text-sm font-medium text-white">Add</button>
+                </div>
+              </div>
+
+              {editForm.items.length === 0 ? (
+                <div className="rounded-2xl border border-dashed border-slate-300 p-6 text-center text-sm text-slate-500 dark:border-slate-700">No items in this invoice.</div>
+              ) : editForm.items.map((item, index) => (
                 <div key={`${item.name}-${index}`} className="rounded-[20px] border border-slate-200 p-3 dark:border-slate-800">
-                  <div className="mb-3 text-sm font-medium text-slate-600 dark:text-slate-300">{item.name}</div>
+                  <div className="mb-3 flex items-center justify-between gap-3">
+                    <label className="flex-1 text-xs font-medium text-slate-600 dark:text-slate-300">
+                      Item Name
+                      <input value={item.name} onChange={(e) => updateEditItemField(index, 'name', e.target.value)} className="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 px-2 py-2 dark:border-slate-800 dark:bg-slate-900" />
+                    </label>
+                    <button onClick={() => removeEditItem(index)} className="rounded-xl bg-rose-100 px-2 py-2 text-xs font-medium text-rose-600 dark:bg-rose-900/30 dark:text-rose-300">Remove</button>
+                  </div>
                   <div className="grid gap-3 md:grid-cols-4">
                     <label className="text-xs font-medium text-slate-600 dark:text-slate-300">
                       Quantity
@@ -385,6 +505,18 @@ export default function SalesHistoryPage() {
                   </div>
                 </div>
               ))}
+            </div>
+
+            <div className="mt-6 rounded-[24px] bg-slate-50 p-4 dark:bg-slate-900">
+              <div className="grid gap-3 md:grid-cols-2">
+                <div className="text-sm text-slate-500">Subtotal <span className="float-right font-semibold text-slate-900 dark:text-white">{formatCurrency(editSummary.subtotal)}</span></div>
+                <div className="text-sm text-slate-500">Discount <span className="float-right font-semibold text-slate-900 dark:text-white">-{formatCurrency(editSummary.discount)}</span></div>
+                <div className="text-sm text-slate-500">Tax <span className="float-right font-semibold text-slate-900 dark:text-white">{formatCurrency(editSummary.tax)}</span></div>
+                <div className="text-sm text-slate-500">Total <span className="float-right font-semibold text-slate-900 dark:text-white">{formatCurrency(editSummary.grandTotal)}</span></div>
+                <div className="text-sm text-slate-500">Paid <span className="float-right font-semibold text-slate-900 dark:text-white">{formatCurrency(editForm.paidAmount)}</span></div>
+                <div className="text-sm text-slate-500">Due <span className="float-right font-semibold text-slate-900 dark:text-white">{formatCurrency(editSummary.dueAmount)}</span></div>
+                <div className="text-sm text-slate-500 md:col-span-2">Change <span className="float-right font-semibold text-slate-900 dark:text-white">{formatCurrency(editSummary.change)}</span></div>
+              </div>
             </div>
 
             <div className="mt-6 flex justify-end gap-3">
