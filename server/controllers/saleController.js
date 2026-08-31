@@ -1,7 +1,7 @@
 const Product = require('../models/Product')
 const Sale = require('../models/Sale')
 const Setting = require('../models/Setting')
-const { sendSaleNotification, sendSaleDeletedNotification, sendLowStockNotification, sendStockUpdatedNotification, shouldSendLowStockNotification } = require('../services/telegramService')
+const { sendSaleNotification, sendSaleDeletedNotification, sendSaleUpdatedNotification, sendLowStockNotification, sendStockUpdatedNotification, shouldSendLowStockNotification } = require('../services/telegramService')
 const { calculateInvoiceProfit, calculateInvoiceSummary, validateInvoicePayload } = require('../utils/invoice')
 const { getMode, getStore, createId } = require('../utils/store')
 
@@ -202,6 +202,155 @@ async function listSales(req, res, next) {
   }
 }
 
+async function updateSale(req, res, next) {
+  try {
+    const { items = [], customerName = '', customerPhone = '', paymentMethod = 'Cash', paidAmount = 0 } = req.body
+
+    const validation = validateInvoicePayload({ items, customerName, customerPhone, paymentMethod, paidAmount })
+    if (!validation.ok) return res.status(400).json({ success: false, message: validation.message })
+
+    let existingSale
+    let store
+    let settings
+
+    if (getMode() === 'memory') {
+      store = getStore()
+      existingSale = store.sales.find((entry) => entry._id === req.params.id)
+      if (!existingSale) return res.status(404).json({ message: 'Sale not found' })
+      settings = store.settings
+    } else {
+      existingSale = await Sale.findById(req.params.id)
+      if (!existingSale) return res.status(404).json({ message: 'Sale not found' })
+      settings = await Setting.findOne()
+    }
+
+    const previousTotal = Number(existingSale.grandTotal || 0)
+
+    if (getMode() === 'memory') {
+      for (const item of existingSale.items) {
+        if (item.type === 'product') {
+          const product = store.products.find((entry) => entry._id === item.productId)
+          if (product) product.stockQuantity += Number(item.quantity || 0)
+        }
+      }
+    } else {
+      for (const item of existingSale.items) {
+        if (item.type === 'product' && item.productId) {
+          const product = await Product.findById(item.productId)
+          if (product) {
+            product.stockQuantity += Number(item.quantity || 0)
+            await product.save()
+          }
+        }
+      }
+    }
+
+    const normalizedItems = []
+    const inventoryUpdates = []
+
+    for (const item of items) {
+      const type = item.type === 'service' ? 'service' : 'product'
+      if (type === 'product') {
+        let product
+        if (getMode() === 'memory') {
+          product = store.products.find((entry) => entry._id === item.productId)
+        } else {
+          product = await Product.findById(item.productId)
+        }
+
+        if (!product) return res.status(404).json({ message: `Product ${item.productId} not found` })
+
+        const quantity = Number(item.quantity || 0)
+        if (product.stockQuantity < quantity) return res.status(400).json({ message: `${product.name} is out of stock` })
+
+        const lineTotal = Number(product.sellingPrice || 0) * quantity
+        const discount = Number(item.discount || 0)
+        const tax = Number(item.tax || 0)
+        const total = Math.max(0, lineTotal - Math.min(discount, lineTotal) + tax)
+
+        normalizedItems.push({
+          type,
+          productId: product._id,
+          name: product.name,
+          quantity,
+          unitPrice: Number(product.sellingPrice || 0),
+          discount,
+          tax,
+          total,
+          buyingPrice: product.buyingPrice,
+        })
+        inventoryUpdates.push({ product, quantity })
+        continue
+      }
+
+      const quantity = Number(item.quantity || item.serviceQuantity || 0)
+      const unitPrice = Number(item.unitPrice ?? item.rate ?? 0)
+      const discount = Number(item.discount || 0)
+      const tax = Number(item.tax || 0)
+      const total = Math.max(0, quantity * unitPrice - Math.min(discount, quantity * unitPrice) + tax)
+
+      normalizedItems.push({
+        type,
+        serviceId: item.serviceId || null,
+        name: item.name || 'Service charge',
+        description: item.description || '',
+        quantity,
+        unitPrice,
+        discount,
+        tax,
+        total,
+      })
+    }
+
+    const summary = calculateInvoiceSummary(normalizedItems, Number(paidAmount || 0))
+    const profit = calculateInvoiceProfit(normalizedItems)
+
+    for (const update of inventoryUpdates) {
+      const product = update.product
+      product.stockQuantity = Number(product.stockQuantity || 0) - update.quantity
+      if (getMode() !== 'memory') {
+        await product.save()
+      }
+    }
+
+    const updatedSalePayload = {
+      ...existingSale.toObject ? existingSale.toObject() : existingSale,
+      customerName: customerName.trim(),
+      customerPhone: customerPhone.trim(),
+      items: summary.items,
+      subtotal: summary.subtotal,
+      discount: summary.discount,
+      tax: summary.tax,
+      grandTotal: summary.grandTotal,
+      profit,
+      paymentMethod,
+      paidAmount: summary.paidAmount,
+      dueAmount: summary.dueAmount,
+      change: summary.change,
+      updatedAt: new Date().toISOString(),
+    }
+
+    let updatedSale
+    if (getMode() === 'memory') {
+      const index = store.sales.findIndex((entry) => entry._id === req.params.id)
+      store.sales[index] = updatedSalePayload
+      updatedSale = store.sales[index]
+    } else {
+      updatedSale = await Sale.findByIdAndUpdate(req.params.id, updatedSalePayload, { new: true })
+    }
+
+    if (settings) {
+      void sendSaleUpdatedNotification(updatedSale, { grandTotal: previousTotal, profit: existingSale.profit }, settings).catch((error) => {
+        console.warn('Sale update Telegram notification skipped after error:', error.message)
+      })
+    }
+
+    return res.json(updatedSale)
+  } catch (error) {
+    next(error)
+  }
+}
+
 async function deleteSale(req, res, next) {
   try {
     if (getMode() === 'memory') {
@@ -252,4 +401,4 @@ async function deleteSale(req, res, next) {
   }
 }
 
-module.exports = { createSale, listSales, deleteSale }
+module.exports = { createSale, listSales, updateSale, deleteSale }

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import toast from 'react-hot-toast'
-import { FiDownload, FiPrinter, FiSearch, FiTrash2 } from 'react-icons/fi'
+import { FiDownload, FiEdit2, FiPrinter, FiSearch, FiTrash2 } from 'react-icons/fi'
 import api from '../services/api'
 import { formatCurrency, formatDate } from '../utils/formatters'
 import { buildInvoicePrintHtml } from '../utils/printInvoice'
@@ -11,6 +11,14 @@ export default function SalesHistoryPage() {
   const [dateFilter, setDateFilter] = useState('')
   const [loading, setLoading] = useState(true)
   const [settings, setSettings] = useState({ storeName: '', address: '', phone: '' })
+  const [editingSale, setEditingSale] = useState(null)
+  const [editForm, setEditForm] = useState({
+    customerName: '',
+    customerPhone: '',
+    paymentMethod: 'Cash',
+    paidAmount: '',
+    items: [],
+  })
 
   const fetchSales = async () => {
     setLoading(true)
@@ -53,6 +61,61 @@ export default function SalesHistoryPage() {
       fetchSales()
     } catch {
       toast.error('Failed to delete invoice')
+    }
+  }
+
+  const openEditModal = (sale) => {
+    setEditingSale(sale)
+    setEditForm({
+      customerName: sale.customerName || '',
+      customerPhone: sale.customerPhone || '',
+      paymentMethod: sale.paymentMethod || 'Cash',
+      paidAmount: Number(sale.paidAmount || 0),
+      items: (sale.items || []).map((item) => ({
+        ...item,
+        quantity: Number(item.quantity || 0),
+        unitPrice: Number(item.unitPrice || 0),
+        discount: Number(item.discount || 0),
+        tax: Number(item.tax || 0),
+      })),
+    })
+  }
+
+  const updateEditItemField = (index, field, value) => {
+    setEditForm((current) => ({
+      ...current,
+      items: current.items.map((item, itemIndex) => itemIndex === index ? { ...item, [field]: field === 'name' ? value : Number(value || 0) } : item),
+    }))
+  }
+
+  const saveEditedInvoice = async () => {
+    if (!editingSale) return
+
+    try {
+      const payload = {
+        customerName: editForm.customerName.trim(),
+        customerPhone: editForm.customerPhone.trim(),
+        paymentMethod: editForm.paymentMethod,
+        paidAmount: Number(editForm.paidAmount || 0),
+        items: editForm.items.map((item) => ({
+          type: item.type,
+          productId: item.productId,
+          serviceId: item.serviceId,
+          name: item.name,
+          description: item.description || '',
+          quantity: Number(item.quantity || 0),
+          unitPrice: Number(item.unitPrice || 0),
+          discount: Number(item.discount || 0),
+          tax: Number(item.tax || 0),
+        })),
+      }
+
+      await api.put(`/sales/${editingSale._id}`, payload)
+      toast.success('Invoice updated and Telegram notification sent')
+      setEditingSale(null)
+      await fetchSales()
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Failed to update invoice')
     }
   }
 
@@ -250,6 +313,7 @@ export default function SalesHistoryPage() {
                     <td className="py-4">{formatDate(sale.createdAt)}</td>
                     <td className="py-4">
                       <div className="flex gap-2">
+                        <button onClick={() => openEditModal(sale)} className="rounded-2xl bg-indigo-100 p-2 text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-300"><FiEdit2 /></button>
                         <button onClick={() => printInvoice(sale)} className="rounded-2xl bg-slate-100 p-2 text-slate-600 dark:bg-slate-800 dark:text-slate-300"><FiPrinter /></button>
                         <button onClick={() => handleDelete(sale._id)} className="rounded-2xl bg-rose-100 p-2 text-rose-600 dark:bg-rose-900/30 dark:text-rose-300"><FiTrash2 /></button>
                       </div>
@@ -261,6 +325,75 @@ export default function SalesHistoryPage() {
           </div>
         )}
       </div>
+
+      {editingSale && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4">
+          <div className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-[28px] bg-white p-6 shadow-2xl dark:bg-slate-950">
+            <div className="mb-5 flex items-center justify-between">
+              <div>
+                <h3 className="text-xl font-semibold">Edit Invoice</h3>
+                <p className="text-sm text-slate-500">{editingSale.invoiceNumber}</p>
+              </div>
+              <button onClick={() => setEditingSale(null)} className="rounded-2xl border border-slate-200 px-3 py-2 text-sm dark:border-slate-800">Close</button>
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-2">
+              <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                Customer Name
+                <input value={editForm.customerName} onChange={(e) => setEditForm((current) => ({ ...current, customerName: e.target.value }))} className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2.5 dark:border-slate-800 dark:bg-slate-900" />
+              </label>
+              <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                Customer Phone
+                <input value={editForm.customerPhone} onChange={(e) => setEditForm((current) => ({ ...current, customerPhone: e.target.value }))} className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2.5 dark:border-slate-800 dark:bg-slate-900" />
+              </label>
+              <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                Payment Method
+                <select value={editForm.paymentMethod} onChange={(e) => setEditForm((current) => ({ ...current, paymentMethod: e.target.value }))} className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2.5 dark:border-slate-800 dark:bg-slate-900">
+                  <option value="Cash">Cash</option>
+                  <option value="Mobile Banking">Mobile Banking</option>
+                  <option value="Card">Card</option>
+                </select>
+              </label>
+              <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                Paid Amount
+                <input type="number" min="0" step="0.01" value={editForm.paidAmount} onChange={(e) => setEditForm((current) => ({ ...current, paidAmount: e.target.value }))} className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2.5 dark:border-slate-800 dark:bg-slate-900" />
+              </label>
+            </div>
+
+            <div className="mt-6 space-y-4">
+              <h4 className="font-semibold">Invoice Items</h4>
+              {editForm.items.map((item, index) => (
+                <div key={`${item.name}-${index}`} className="rounded-[20px] border border-slate-200 p-3 dark:border-slate-800">
+                  <div className="mb-3 text-sm font-medium text-slate-600 dark:text-slate-300">{item.name}</div>
+                  <div className="grid gap-3 md:grid-cols-4">
+                    <label className="text-xs font-medium text-slate-600 dark:text-slate-300">
+                      Quantity
+                      <input type="number" min="0" step="1" value={item.quantity} onChange={(e) => updateEditItemField(index, 'quantity', e.target.value)} className="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 px-2 py-2 dark:border-slate-800 dark:bg-slate-900" />
+                    </label>
+                    <label className="text-xs font-medium text-slate-600 dark:text-slate-300">
+                      Unit Price
+                      <input type="number" min="0" step="0.01" value={item.unitPrice} onChange={(e) => updateEditItemField(index, 'unitPrice', e.target.value)} className="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 px-2 py-2 dark:border-slate-800 dark:bg-slate-900" />
+                    </label>
+                    <label className="text-xs font-medium text-slate-600 dark:text-slate-300">
+                      Discount
+                      <input type="number" min="0" step="0.01" value={item.discount} onChange={(e) => updateEditItemField(index, 'discount', e.target.value)} className="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 px-2 py-2 dark:border-slate-800 dark:bg-slate-900" />
+                    </label>
+                    <label className="text-xs font-medium text-slate-600 dark:text-slate-300">
+                      Tax
+                      <input type="number" min="0" step="0.01" value={item.tax} onChange={(e) => updateEditItemField(index, 'tax', e.target.value)} className="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 px-2 py-2 dark:border-slate-800 dark:bg-slate-900" />
+                    </label>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-6 flex justify-end gap-3">
+              <button onClick={() => setEditingSale(null)} className="rounded-2xl border border-slate-200 px-4 py-2 text-sm dark:border-slate-800">Cancel</button>
+              <button onClick={saveEditedInvoice} className="rounded-2xl bg-slate-900 px-4 py-2 text-sm font-medium text-white dark:bg-slate-700">Save Changes</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

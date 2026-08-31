@@ -97,6 +97,20 @@ function getTelegramMessageText(eventType, payload = {}, settings = {}) {
         'Deleted At:',
         formatDateTime(payload.deletedAt || payload.timestamp || new Date()),
       ].join('\n')
+    case 'sale-updated':
+      return [
+        '📝 SALE UPDATED',
+        '',
+        `Invoice: ${payload.invoiceNumber}`,
+        `Customer: ${payload.customerName || 'N/A'}`,
+        `Previous Total: ${currency}${payload.previousTotal || 0}`,
+        `Updated Total: ${currency}${payload.grandTotal || 0}`,
+        `Profit: ${currency}${payload.profit || 0}`,
+        `Payment: ${payload.paymentMethod || 'N/A'}`,
+        '',
+        'Updated At:',
+        formatDateTime(payload.updatedAt || payload.timestamp || new Date()),
+      ].join('\n')
     case 'product-added':
       return [
         '🆕 NEW PRODUCT ADDED',
@@ -195,6 +209,19 @@ async function sendSaleDeletedNotification(sale, settings = {}) {
     customerName: sale.customerName,
     grandTotal: sale.grandTotal,
     deletedAt: new Date(),
+  }, settings)
+  return sendTelegramMessage(text, settings)
+}
+
+async function sendSaleUpdatedNotification(sale, previousSale = {}, settings = {}) {
+  const text = getTelegramMessageText('sale-updated', {
+    invoiceNumber: sale.invoiceNumber,
+    customerName: sale.customerName,
+    previousTotal: Number(previousSale.grandTotal || 0),
+    grandTotal: sale.grandTotal,
+    profit: sale.profit,
+    paymentMethod: sale.paymentMethod,
+    updatedAt: new Date(),
   }, settings)
   return sendTelegramMessage(text, settings)
 }
@@ -322,6 +349,7 @@ module.exports = {
   getTelegramMessageText,
   sendSaleNotification,
   sendSaleDeletedNotification,
+  sendSaleUpdatedNotification,
   sendLowStockNotification,
   sendStockUpdatedNotification,
   sendDamageNotification,

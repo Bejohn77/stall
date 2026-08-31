@@ -25,6 +25,24 @@ test('formats a sale-deleted Telegram message with invoice details', () => {
   assert.match(text, /৳1200/)
 })
 
+test('formats sale-updated Telegram message with revised totals', () => {
+  const text = getTelegramMessageText('sale-updated', {
+    invoiceNumber: 'INV-00005',
+    customerName: 'Jane Doe',
+    grandTotal: 1850,
+    previousTotal: 1600,
+    profit: 520,
+    paymentMethod: 'Card',
+    updatedAt: new Date('2026-07-27T12:00:00.000Z'),
+  }, { currency: '৳' })
+
+  assert.match(text, /SALE UPDATED/i)
+  assert.match(text, /INV-00005/)
+  assert.match(text, /Jane Doe/)
+  assert.match(text, /৳1850/)
+  assert.match(text, /Previous Total:/i)
+})
+
 test('formats new product and price update Telegram messages', () => {
   const addedText = getTelegramMessageText('product-added', {
     productName: 'Coca Cola 250ml',
