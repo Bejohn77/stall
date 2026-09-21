@@ -61,6 +61,11 @@ export default function NewSalePage() {
     return Math.max(0, lineSubtotal - Math.min(discount, lineSubtotal) + tax)
   }
 
+  const calculateItemProfit = (item) => {
+    if (item.type !== 'product') return 0
+    return (Number(item.unitPrice || 0) - Number(item.buyingPrice || 0)) * Number(item.quantity || 0)
+  }
+
   const addProductItem = (product = selectedProduct) => {
     if (!product) return toast.error('Select a product first')
     const quantity = Number(productQuantity || 0)
@@ -84,6 +89,7 @@ export default function NewSalePage() {
         name: product.name,
         quantity,
         unitPrice: Number(product.sellingPrice || 0),
+        buyingPrice: Number(product.buyingPrice || 0),
         discount: 0,
         tax: 0,
       }
@@ -147,7 +153,7 @@ export default function NewSalePage() {
   const summary = useMemo(() => {
     const items = lineItems.map((item) => {
       const lineTotal = calculateLineTotal(item)
-      return { ...item, total: lineTotal }
+      return { ...item, total: lineTotal, profit: calculateItemProfit(item) }
     })
 
     const subtotal = items.reduce((sum, item) => sum + (Number(item.quantity || 0) * Number(item.unitPrice || 0)), 0)
@@ -162,6 +168,7 @@ export default function NewSalePage() {
       discount,
       tax,
       grandTotal,
+      totalProfit: items.reduce((sum, item) => sum + item.profit, 0),
       paidAmount: paid,
       dueAmount: Math.max(0, grandTotal - paid),
       change: Math.max(0, paid - grandTotal),
@@ -414,6 +421,12 @@ export default function NewSalePage() {
                     <span>Total</span>
                     <span>{formatCurrency(calculateLineTotal(item))}</span>
                   </div>
+                  {item.type === 'product' ? (
+                    <div className="mt-2 flex items-center justify-between text-sm text-emerald-600 dark:text-emerald-400">
+                      <span>Profit</span>
+                      <span>{formatCurrency(calculateItemProfit(item))}</span>
+                    </div>
+                  ) : null}
                 </div>
               ))}
             </div>
@@ -438,6 +451,7 @@ export default function NewSalePage() {
                 <div className="flex justify-between"><span>Discount</span><span>-{formatCurrency(summary.discount)}</span></div>
                 <div className="flex justify-between"><span>Tax</span><span>{formatCurrency(summary.tax)}</span></div>
                 <div className="flex justify-between"><span>Grand Total</span><span>{formatCurrency(summary.grandTotal)}</span></div>
+                <div className="flex justify-between font-semibold text-emerald-600 dark:text-emerald-400"><span>Total Invoice Profit</span><span>{formatCurrency(summary.totalProfit)}</span></div>
                 <div className="flex justify-between"><span>Due</span><span>{formatCurrency(summary.dueAmount)}</span></div>
                 <div className="flex justify-between"><span>Change</span><span>{formatCurrency(summary.change)}</span></div>
               </div>

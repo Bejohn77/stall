@@ -5,6 +5,13 @@ const MonthlyCost = require('../models/MonthlyCost')
 const { calculateSaleGrossProfit, calculateSaleDiscount, calculateSaleProfit, calculatePeriodProfitMetrics } = require('../utils/invoice')
 const { getMode, getStore } = require('../utils/store')
 
+function parseDhakaDate(dateString, endOfDay = false) {
+  const [year, month, day] = dateString.split('-').map(Number)
+  const DHAKA_OFFSET_MS = 6 * 60 * 60 * 1000
+  const dateUtcMs = Date.UTC(year, month - 1, day) - DHAKA_OFFSET_MS
+  return new Date(dateUtcMs + (endOfDay ? 24 * 60 * 60 * 1000 - 1 : 0))
+}
+
 function buildDateRange(type, from, to) {
   const now = new Date()
   const bangladeshTime = new Intl.DateTimeFormat('en-CA', {
@@ -49,9 +56,8 @@ function buildDateRange(type, from, to) {
     end.setMonth(end.getMonth() + 1, 0)
     end.setHours(23, 59, 59, 999)
   } else if (type === 'custom' && from && to) {
-    start.setTime(new Date(from).getTime())
-    end.setTime(new Date(to).getTime())
-    end.setHours(23, 59, 59, 999)
+    start.setTime(parseDhakaDate(from).getTime())
+    end.setTime(parseDhakaDate(to, true).getTime())
   }
 
   return { start, end }
@@ -235,4 +241,4 @@ async function getReport(req, res, next) {
   }
 }
 
-module.exports = { getReport, summarizeServiceActivity, buildMonthlySummary }
+module.exports = { getReport, summarizeServiceActivity, buildMonthlySummary, buildDateRange }

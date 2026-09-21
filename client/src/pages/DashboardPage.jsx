@@ -189,6 +189,19 @@ export default function DashboardPage() {
         ))}
       </div>
 
+      <section>
+        <div className="mb-4">
+          <h3 className="text-lg font-semibold">Stock Summary</h3>
+          <p className="text-sm text-slate-500">Current inventory value and expected profit</p>
+        </div>
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <MetricCard label="Total Stock Items" value={dashboard.totalStockQuantity || 0} hint="Total units currently in stock" accent="amber" icon={FiBox} />
+          <MetricCard label="Total Buying Value" value={formatCurrency(dashboard.totalBuyingValue ?? dashboard.inventoryValue ?? 0)} hint="Current stock at buying price" accent="indigo" icon={FiDollarSign} />
+          <MetricCard label="Total Selling Value" value={formatCurrency(dashboard.totalSellingValue || 0)} hint="Current stock at selling price" accent="emerald" icon={FiPackage} />
+          <MetricCard label="Expected Total Profit" value={formatCurrency(dashboard.expectedTotalProfit || 0)} hint="Selling value minus buying value" accent="teal" icon={FiTrendingUp} />
+        </div>
+      </section>
+
       <div className="grid gap-6 xl:grid-cols-[1.4fr_0.8fr]">
         <div className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-950">
           <div className="mb-4 flex items-center justify-between">

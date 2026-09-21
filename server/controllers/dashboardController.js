@@ -252,7 +252,10 @@ async function getDashboard(req, res, next) {
       const totalProducts = store.products.length
       const lowStockProducts = store.products.filter((product) => toNumber(product.stockQuantity || 0) <= 3).length
       const outOfStockProducts = store.products.filter((product) => toNumber(product.stockQuantity || 0) <= 0).length
-      const inventoryValue = store.products.reduce((sum, product) => sum + toNumber(product.stockQuantity || 0) * toNumber(product.buyingPrice || 0), 0)
+      const totalStockQuantity = store.products.reduce((sum, product) => sum + toNumber(product.stockQuantity || 0), 0)
+      const totalBuyingValue = store.products.reduce((sum, product) => sum + toNumber(product.stockQuantity || 0) * toNumber(product.buyingPrice || 0), 0)
+      const totalSellingValue = store.products.reduce((sum, product) => sum + toNumber(product.stockQuantity || 0) * toNumber(product.sellingPrice || 0), 0)
+      const inventoryValue = totalBuyingValue
       const recentSales = [...store.sales].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)).slice(0, 5)
       const lowStockItems = store.products.filter((product) => toNumber(product.stockQuantity || 0) <= 3).slice(0, 5)
       const todayServiceBills = (store.serviceBills || []).filter((bill) => new Date(bill.createdAt) >= todayRange.start && new Date(bill.createdAt) <= todayRange.end)
@@ -281,7 +284,10 @@ async function getDashboard(req, res, next) {
         totalDiscounts: allTimeDiscount,
         netProfit: monthlyMetrics.netProfitValue,
         totalProducts,
-        totalStockQuantity: store.products.reduce((sum, product) => sum + toNumber(product.stockQuantity || 0), 0),
+        totalStockQuantity,
+        totalBuyingValue,
+        totalSellingValue,
+        expectedTotalProfit: totalSellingValue - totalBuyingValue,
         lowStockProducts,
         outOfStockProducts,
         inventoryValue,
@@ -366,8 +372,19 @@ async function getDashboard(req, res, next) {
     ]
     const allTimeDiscount = (await Sale.find({})).reduce((sum, sale) => sum + toNumber(sale.discount || 0), 0)
     const inventoryCount = await Product.countDocuments()
-    const totalStockQuantity = await Product.aggregate([{ $group: { _id: null, total: { $sum: '$stockQuantity' } } }])
-    const inventoryValue = await Product.aggregate([{ $group: { _id: null, total: { $sum: { $multiply: ['$stockQuantity', '$buyingPrice'] } } } }])
+    const inventorySummary = await Product.aggregate([
+      {
+        $group: {
+          _id: null,
+          totalStockQuantity: { $sum: '$stockQuantity' },
+          totalBuyingValue: { $sum: { $multiply: ['$stockQuantity', '$buyingPrice'] } },
+          totalSellingValue: { $sum: { $multiply: ['$stockQuantity', '$sellingPrice'] } },
+        },
+      },
+    ])
+    const totalStockQuantity = inventorySummary[0]?.totalStockQuantity || 0
+    const totalBuyingValue = inventorySummary[0]?.totalBuyingValue || 0
+    const totalSellingValue = inventorySummary[0]?.totalSellingValue || 0
     const outOfStockProducts = await Product.countDocuments({ stockQuantity: { $lte: 0 } })
 
     res.json({
@@ -384,10 +401,13 @@ async function getDashboard(req, res, next) {
       totalDiscounts: allTimeDiscount,
       netProfit: monthlyMetrics.netProfitValue,
       totalProducts: inventoryCount,
-      totalStockQuantity: totalStockQuantity[0]?.total || 0,
+      totalStockQuantity,
+      totalBuyingValue,
+      totalSellingValue,
+      expectedTotalProfit: totalSellingValue - totalBuyingValue,
       lowStockProducts,
       outOfStockProducts,
-      inventoryValue: inventoryValue[0]?.total || 0,
+      inventoryValue: totalBuyingValue,
       profitMargin: monthlyMetrics.profitMargin,
       discountPercentage: monthlyMetrics.discountPercentage,
       todayDiscountPercentage: todayMetrics.discountPercentage,
