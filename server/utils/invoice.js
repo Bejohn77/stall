@@ -1,20 +1,28 @@
 function calculateInvoiceProfit(items = []) {
-  return (items || []).reduce((profit, item) => {
+  const normalizedItems = (items || []).filter((item) => item && typeof item === 'object')
+
+  const productProfit = normalizedItems.reduce((sum, item) => {
+    if (item.type === 'service') return sum
+
     const quantity = Number(item.quantity || 0)
     const unitPrice = Number(item.unitPrice || 0)
-    const discount = Number(item.discount || 0)
-
-    if (item.type === 'service') {
-      const lineTotal = quantity * unitPrice
-      const itemDiscount = Math.min(discount, lineTotal)
-      return profit + Math.max(0, lineTotal - itemDiscount)
-    }
-
     const buyingPrice = Number(item.buyingPrice || 0)
-    const grossProfit = (unitPrice - buyingPrice) * quantity
-    const itemDiscount = Math.min(discount, quantity * unitPrice)
-    return profit + Math.max(0, grossProfit - itemDiscount)
+
+    return sum + (unitPrice - buyingPrice) * quantity
   }, 0)
+
+  const serviceBilling = normalizedItems.reduce((sum, item) => {
+    if (item.type !== 'service') return sum
+
+    const quantity = Number(item.quantity || 0)
+    const unitPrice = Number(item.unitPrice || 0)
+
+    return sum + quantity * unitPrice
+  }, 0)
+
+  const totalDiscount = normalizedItems.reduce((sum, item) => sum + Number(item.discount || 0), 0)
+
+  return productProfit + serviceBilling - totalDiscount
 }
 
 function calculateSaleGrossProfit(sale = {}) {

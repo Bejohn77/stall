@@ -62,8 +62,13 @@ export default function NewSalePage() {
   }
 
   const calculateItemProfit = (item) => {
-    if (item.type !== 'product') return 0
-    return (Number(item.unitPrice || 0) - Number(item.buyingPrice || 0)) * Number(item.quantity || 0)
+    const quantity = Number(item.quantity || 0)
+    const unitPrice = Number(item.unitPrice || 0)
+    if (item.type === 'service') {
+      const serviceBilling = quantity * unitPrice
+      return serviceBilling
+    }
+    return (unitPrice - Number(item.buyingPrice || 0)) * quantity
   }
 
   const addProductItem = (product = selectedProduct) => {
@@ -159,6 +164,10 @@ export default function NewSalePage() {
     const subtotal = items.reduce((sum, item) => sum + (Number(item.quantity || 0) * Number(item.unitPrice || 0)), 0)
     const discount = items.reduce((sum, item) => sum + Math.min(Number(item.discount || 0), (Number(item.quantity || 0) * Number(item.unitPrice || 0))), 0)
     const tax = items.reduce((sum, item) => sum + Number(item.tax || 0), 0)
+    const totalPurchaseCost = items.reduce((sum, item) => {
+      if (item.type !== 'product') return sum
+      return sum + Number(item.quantity || 0) * Number(item.buyingPrice || 0)
+    }, 0)
     const grandTotal = Math.max(0, subtotal - discount + tax)
     const paid = parsedPaidAmount
 
@@ -167,8 +176,9 @@ export default function NewSalePage() {
       subtotal,
       discount,
       tax,
+      totalPurchaseCost,
       grandTotal,
-      totalProfit: items.reduce((sum, item) => sum + item.profit, 0),
+      totalProfit: items.reduce((sum, item) => sum + item.profit, 0) - discount,
       paidAmount: paid,
       dueAmount: Math.max(0, grandTotal - paid),
       change: Math.max(0, paid - grandTotal),
@@ -422,9 +432,15 @@ export default function NewSalePage() {
                     <span>{formatCurrency(calculateLineTotal(item))}</span>
                   </div>
                   {item.type === 'product' ? (
-                    <div className="mt-2 flex items-center justify-between text-sm text-emerald-600 dark:text-emerald-400">
-                      <span>Profit</span>
-                      <span>{formatCurrency(calculateItemProfit(item))}</span>
+                    <div className="mt-2 space-y-1 text-sm">
+                      <div className="flex items-center justify-between text-slate-500">
+                        <span>Purchase Cost</span>
+                        <span>{formatCurrency(Number(item.quantity || 0) * Number(item.buyingPrice || 0))}</span>
+                      </div>
+                      <div className="flex items-center justify-between font-semibold text-emerald-600 dark:text-emerald-400">
+                        <span>Profit</span>
+                        <span>{formatCurrency(calculateItemProfit(item))}</span>
+                      </div>
                     </div>
                   ) : null}
                 </div>
@@ -451,6 +467,7 @@ export default function NewSalePage() {
                 <div className="flex justify-between"><span>Discount</span><span>-{formatCurrency(summary.discount)}</span></div>
                 <div className="flex justify-between"><span>Tax</span><span>{formatCurrency(summary.tax)}</span></div>
                 <div className="flex justify-between"><span>Grand Total</span><span>{formatCurrency(summary.grandTotal)}</span></div>
+                <div className="flex justify-between"><span>Total Purchase Cost</span><span>{formatCurrency(summary.totalPurchaseCost)}</span></div>
                 <div className="flex justify-between font-semibold text-emerald-600 dark:text-emerald-400"><span>Total Invoice Profit</span><span>{formatCurrency(summary.totalProfit)}</span></div>
                 <div className="flex justify-between"><span>Due</span><span>{formatCurrency(summary.dueAmount)}</span></div>
                 <div className="flex justify-between"><span>Change</span><span>{formatCurrency(summary.change)}</span></div>

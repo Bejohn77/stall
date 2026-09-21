@@ -76,6 +76,26 @@ test('discounts reduce profit for both products and services', () => {
   assert.equal(calculateInvoiceProfit(items), 145)
 })
 
+test('mixed invoice profit keeps negative product margins and subtracts the total discount', () => {
+  const items = [
+    {
+      type: 'product',
+      quantity: 1,
+      unitPrice: 50,
+      buyingPrice: 80,
+      discount: 10,
+    },
+    {
+      type: 'service',
+      quantity: 1,
+      unitPrice: 100,
+      discount: 0,
+    },
+  ]
+
+  assert.equal(calculateInvoiceProfit(items), 60)
+})
+
 test('custom service validation rejects incomplete entries', () => {
   const result = validateInvoicePayload({
     items: [

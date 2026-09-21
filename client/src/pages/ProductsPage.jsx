@@ -134,6 +134,7 @@ export default function ProductsPage() {
                   <div className="flex items-center justify-between"><span>Buy</span><span>{formatCurrency(product.buyingPrice)}</span></div>
                   <div className="flex items-center justify-between"><span>Sell</span><span>{formatCurrency(product.sellingPrice)}</span></div>
                   <div className="flex items-center justify-between"><span>Stock</span><span>{product.stockQuantity} {product.unit}</span></div>
+                  <div className="flex items-center justify-between font-semibold text-slate-900 dark:text-white"><span>Total Buy Value</span><span>{formatCurrency(Number(product.buyingPrice || 0) * Number(product.stockQuantity || 0))}</span></div>
                 </div>
                 <div className="mt-5 flex justify-end gap-2">
                   <button onClick={() => openEditModal(product)} className="rounded-2xl bg-indigo-100 p-2 text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-300">
