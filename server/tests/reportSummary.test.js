@@ -1,6 +1,6 @@
 const test = require('node:test')
 const assert = require('node:assert/strict')
-const { buildMonthlySummary } = require('../controllers/reportController')
+const { buildMonthlySummary, buildRangeSummary } = require('../controllers/reportController')
 
 test('monthly summary calculates sales, costs, damage loss, and net profit from sales and service bills', () => {
   const summary = buildMonthlySummary(
@@ -73,4 +73,16 @@ test('monthly summary uses the recorded damage loss when present', () => {
 
   assert.equal(summary.monthlyDamageCost, 25)
   assert.equal(summary.monthlyNetProfit, 35)
+})
+
+test('custom range summary includes service bill revenue in gross and net profit', () => {
+  const summary = buildRangeSummary(
+    [{ items: [{ type: 'product', quantity: 1, unitPrice: 100, discount: 10, buyingPrice: 40 }] }],
+    [{ items: [{ quantity: 1, unitPrice: 80, discount: 0, tax: 0 }] }],
+    [{ amount: 20 }],
+    [{ quantity: 1, costPrice: 5 }],
+  )
+
+  assert.equal(summary.grossProfit, 130)
+  assert.equal(summary.netProfit, 105)
 })

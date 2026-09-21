@@ -119,6 +119,39 @@ function buildMonthlySummaryRange() {
   return { start, end }
 }
 
+function buildRangeSummary(rangeSales = [], rangeServiceBills = [], rangeCosts = [], rangeDamageEntries = []) {
+  const profitMetrics = calculatePeriodProfitMetrics({
+    sales: rangeSales,
+    damages: rangeDamageEntries,
+    costs: rangeCosts,
+  })
+
+  const serviceRevenueFromBills = (rangeServiceBills || []).reduce((sum, bill) => {
+    const billTotal = (bill.items || []).reduce((lineSum, item) => lineSum + calculateServiceLineRevenue(item), 0)
+    return sum + (Number(bill.subtotal || 0) || billTotal)
+  }, 0)
+
+  const serviceRevenueFromSales = (rangeSales || []).reduce((sum, sale) => {
+    const serviceItems = (sale.items || []).filter((item) => item.type === 'service')
+    return sum + serviceItems.reduce((lineSum, item) => lineSum + calculateServiceLineRevenue(item), 0)
+  }, 0)
+
+  const totalServiceRevenue = serviceRevenueFromBills + serviceRevenueFromSales
+  const grossProfit = profitMetrics.grossProfitValue + serviceRevenueFromBills
+  const netProfit = profitMetrics.netProfitValue + serviceRevenueFromBills
+
+  return {
+    salesProfit: profitMetrics.salesProfitValue,
+    salesDiscount: profitMetrics.salesDiscountValue,
+    businessCost: profitMetrics.businessCostValue,
+    damageCost: profitMetrics.damageCostValue,
+    totalServiceRevenue,
+    grossProfit,
+    profit: netProfit,
+    netProfit,
+  }
+}
+
 function buildMonthlySummary(monthlySales = [], monthlyServiceBills = [], monthlyCosts = [], damageEntries = []) {
   const profitMetrics = calculatePeriodProfitMetrics({
     sales: monthlySales,
@@ -129,26 +162,21 @@ function buildMonthlySummary(monthlySales = [], monthlyServiceBills = [], monthl
   const monthlyDiscount = profitMetrics.salesDiscountValue
   const monthlyBusinessCost = profitMetrics.businessCostValue
   const monthlyDamageCost = profitMetrics.damageCostValue
-  // service revenue from explicit service bills (not included in sales profit metrics)
   const serviceRevenueFromBills = monthlyServiceBills.reduce((sum, bill) => {
     const billTotal = (bill.items || []).reduce((lineSum, item) => lineSum + calculateServiceLineRevenue(item), 0)
     return sum + (Number(bill.subtotal || 0) || billTotal)
   }, 0)
-    const serviceRevenueFromSales = monthlySales.reduce((sum, sale) => {
-      const serviceItems = (sale.items || []).filter((item) => item.type === 'service')
-      return sum + serviceItems.reduce((lineSum, item) => lineSum + calculateServiceLineRevenue(item), 0)
-    }, 0)
-    const totalMonthlyServiceRevenue = Number.isFinite(serviceRevenueFromBills + serviceRevenueFromSales)
-      ? (serviceRevenueFromBills + serviceRevenueFromSales)
-      : 0
-  // total service revenue already included in profitMetrics (from sales). Add only bills' service revenue.
+  const serviceRevenueFromSales = monthlySales.reduce((sum, sale) => {
+    const serviceItems = (sale.items || []).filter((item) => item.type === 'service')
+    return sum + serviceItems.reduce((lineSum, item) => lineSum + calculateServiceLineRevenue(item), 0)
+  }, 0)
+  const totalMonthlyServiceRevenue = Number.isFinite(serviceRevenueFromBills + serviceRevenueFromSales)
+    ? (serviceRevenueFromBills + serviceRevenueFromSales)
+    : 0
   const totalMonthlyCosts = monthlyBusinessCost
   const totalDamagedProductLoss = monthlyDamageCost
-    const monthlyGrossProfit = profitMetrics.grossProfitValue + serviceRevenueFromBills
-    const monthlyNetProfit = profitMetrics.netProfitValue + serviceRevenueFromBills // profitMetrics already includes service revenue from sales; add only bills
-
-  // If service bills contribute revenue, ensure gross/net include them appropriately
-  // monthlyGrossProfit already adds service bills revenue; monthlyNetProfit should deduct operating and damage as profitMetrics does, then add service bills revenue (they have no associated product cost here)
+  const monthlyGrossProfit = profitMetrics.grossProfitValue + serviceRevenueFromBills
+  const monthlyNetProfit = profitMetrics.netProfitValue + serviceRevenueFromBills
 
   return {
     totalMonthlySalesProfit,
@@ -202,16 +230,12 @@ async function getReport(req, res, next) {
       rangeDamageEntries = await Damage.find({ createdAt: { $gte: range.start, $lte: range.end } }).sort({ createdAt: 1 })
     }
 
-    const rangeProfitMetrics = calculatePeriodProfitMetrics({
-      sales,
-      damages: rangeDamageEntries,
-      costs: rangeCosts,
-    })
+    const rangeSummary = buildRangeSummary(sales, serviceBills, rangeCosts, rangeDamageEntries)
     const summary = {
       sales: sales.reduce((sum, sale) => sum + Number(sale.grandTotal || 0), 0),
-      grossProfit: rangeProfitMetrics.grossProfitValue,
-      profit: rangeProfitMetrics.netProfitValue,
-      netProfit: rangeProfitMetrics.netProfitValue,
+      grossProfit: rangeSummary.grossProfit,
+      profit: rangeSummary.netProfit,
+      netProfit: rangeSummary.netProfit,
       productsSold: sales.reduce((sum, sale) => sum + (sale.items || []).reduce((count, item) => count + Number(item.quantity || 0), 0), 0),
     }
 
@@ -241,4 +265,4 @@ async function getReport(req, res, next) {
   }
 }
 
-module.exports = { getReport, summarizeServiceActivity, buildMonthlySummary, buildDateRange }
+module.exports = { getReport, summarizeServiceActivity, buildRangeSummary, buildMonthlySummary, buildDateRange }
