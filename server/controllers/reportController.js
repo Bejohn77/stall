@@ -6,10 +6,12 @@ const { calculateSaleGrossProfit, calculateSaleDiscount, calculateSaleProfit, ca
 const { getMode, getStore } = require('../utils/store')
 
 function parseDhakaDate(dateString, endOfDay = false) {
+  if (!dateString || typeof dateString !== 'string') return new Date()
+
   const [year, month, day] = dateString.split('-').map(Number)
-  const DHAKA_OFFSET_MS = 6 * 60 * 60 * 1000
-  const dateUtcMs = Date.UTC(year, month - 1, day) - DHAKA_OFFSET_MS
-  return new Date(dateUtcMs + (endOfDay ? 24 * 60 * 60 * 1000 - 1 : 0))
+  const base = new Date(`${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}T${endOfDay ? '23:59:59.999' : '00:00:00'}+06:00`)
+
+  return Number.isNaN(base.getTime()) ? new Date() : base
 }
 
 function buildDateRange(type, from, to) {

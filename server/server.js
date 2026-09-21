@@ -8,6 +8,7 @@ const { connectDatabase } = require('./config/db')
 const { bootstrapAuth } = require('./services/authBootstrap')
 
 dotenv.config({ path: path.join(__dirname, '.env') })
+process.env.TZ = 'Asia/Dhaka'
 
 const app = express()
 const port = process.env.PORT || 5000

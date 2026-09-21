@@ -39,8 +39,8 @@ async function listDamages(req, res, next) {
       const filtered = (store.damages || []).filter((damage) => {
         const matchesProduct = !product || `${damage.productName}`.toLowerCase().includes(product.toLowerCase())
         const createdAt = new Date(damage.createdAt)
-        const matchesFrom = !from || createdAt >= new Date(from)
-        const matchesTo = !to || createdAt <= new Date(to)
+        const matchesFrom = !from || createdAt >= new Date(`${from}T00:00:00+06:00`)
+        const matchesTo = !to || createdAt <= new Date(`${to}T23:59:59.999+06:00`)
         return matchesProduct && matchesFrom && matchesTo
       })
       return res.json(filtered.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)))
@@ -51,8 +51,8 @@ async function listDamages(req, res, next) {
     if (product) query.productName = { $regex: product, $options: 'i' }
     if (from || to) {
       query.createdAt = {}
-      if (from) query.createdAt.$gte = new Date(from)
-      if (to) query.createdAt.$lte = new Date(to)
+      if (from) query.createdAt.$gte = new Date(`${from}T00:00:00+06:00`)
+      if (to) query.createdAt.$lte = new Date(`${to}T23:59:59.999+06:00`)
     }
 
     const damages = await Damage.find(query).sort({ createdAt: -1 })
@@ -192,16 +192,16 @@ async function getDamageReport(req, res, next) {
       const store = getStore()
       damages = (store.damages || []).filter((damage) => {
         const createdAt = new Date(damage.createdAt)
-        const matchesFrom = !from || createdAt >= new Date(from)
-        const matchesTo = !to || createdAt <= new Date(to)
+        const matchesFrom = !from || createdAt >= new Date(`${from}T00:00:00+06:00`)
+        const matchesTo = !to || createdAt <= new Date(`${to}T23:59:59.999+06:00`)
         return matchesFrom && matchesTo
       })
     } else {
       const query = {}
       if (from || to) {
         query.createdAt = {}
-        if (from) query.createdAt.$gte = new Date(from)
-        if (to) query.createdAt.$lte = new Date(to)
+        if (from) query.createdAt.$gte = new Date(`${from}T00:00:00+06:00`)
+        if (to) query.createdAt.$lte = new Date(`${to}T23:59:59.999+06:00`)
       }
       damages = await Damage.find(query).sort({ createdAt: 1 })
     }
