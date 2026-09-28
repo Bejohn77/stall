@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { FiPlus, FiSearch, FiTrash2, FiEdit3, FiPackage } from 'react-icons/fi'
 import toast from 'react-hot-toast'
@@ -10,8 +10,10 @@ export default function ProductsPage() {
   const [search, setSearch] = useState('')
   const [category, setCategory] = useState('')
   const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
   const [modalOpen, setModalOpen] = useState(false)
   const [editingProduct, setEditingProduct] = useState(null)
+  const saveInProgress = useRef(false)
 
   const { register, handleSubmit, reset, setValue } = useForm({
     defaultValues: {
@@ -65,6 +67,10 @@ export default function ProductsPage() {
   }
 
   const onSubmit = async (formData) => {
+    if (saveInProgress.current) return
+
+    saveInProgress.current = true
+    setSaving(true)
     try {
       if (editingProduct) {
         await api.put(`/products/${editingProduct._id}`, formData)
@@ -77,6 +83,9 @@ export default function ProductsPage() {
       fetchProducts()
     } catch (error) {
       toast.error(error.response?.data?.message || 'Could not save product')
+    } finally {
+      saveInProgress.current = false
+      setSaving(false)
     }
   }
 
@@ -158,7 +167,7 @@ export default function ProductsPage() {
                 <h3 className="text-xl font-semibold">{editingProduct ? 'Edit Product' : 'Add Product'}</h3>
                 <p className="text-sm text-slate-500">Capture product details and stock</p>
               </div>
-              <button onClick={() => setModalOpen(false)} className="rounded-2xl border border-slate-200 px-3 py-2 text-sm">Close</button>
+              <button onClick={() => setModalOpen(false)} disabled={saving} className="rounded-2xl border border-slate-200 px-3 py-2 text-sm disabled:opacity-50">Close</button>
             </div>
             <form onSubmit={handleSubmit(onSubmit)} className="grid gap-4 md:grid-cols-2">
               <input {...register('name', { required: true })} placeholder="Product name" className="rounded-2xl border border-slate-200 p-3 dark:border-slate-800 dark:bg-slate-900" />
@@ -169,8 +178,8 @@ export default function ProductsPage() {
               <input {...register('unit', { required: true })} placeholder="Unit" className="rounded-2xl border border-slate-200 p-3 dark:border-slate-800 dark:bg-slate-900" />
               <input {...register('barcode')} placeholder="Barcode (optional)" className="rounded-2xl border border-slate-200 p-3 dark:border-slate-800 dark:bg-slate-900 md:col-span-2" />
               <div className="md:col-span-2 flex justify-end gap-3">
-                <button type="button" onClick={() => setModalOpen(false)} className="rounded-2xl border border-slate-200 px-4 py-2">Cancel</button>
-                <button type="submit" className="rounded-2xl bg-slate-900 px-4 py-2 text-white dark:bg-slate-800">Save Product</button>
+                <button type="button" onClick={() => setModalOpen(false)} disabled={saving} className="rounded-2xl border border-slate-200 px-4 py-2 disabled:opacity-50">Cancel</button>
+                <button type="submit" disabled={saving} className="rounded-2xl bg-slate-900 px-4 py-2 text-white disabled:cursor-not-allowed disabled:opacity-50 dark:bg-slate-800">{saving ? 'Saving...' : 'Save Product'}</button>
               </div>
             </form>
           </div>
