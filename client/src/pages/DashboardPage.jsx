@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { FiAlertTriangle, FiArrowDownRight, FiArrowUpRight, FiBox, FiDollarSign, FiPackage, FiPercent, FiTrendingUp } from 'react-icons/fi'
+import { FiAlertTriangle, FiArrowDownRight, FiArrowUpRight, FiBox, FiChevronDown, FiChevronUp, FiDollarSign, FiPackage, FiPercent, FiSearch, FiTrendingUp, FiX } from 'react-icons/fi'
 import { Bar, BarChart, CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import api from '../services/api'
 import { formatCurrency, formatDate } from '../utils/formatters'
@@ -58,6 +58,10 @@ function formatPercent(value) {
 export default function DashboardPage() {
   const [dashboard, setDashboard] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [dueSearch, setDueSearch] = useState('')
+  const [dueStatusFilter, setDueStatusFilter] = useState('All')
+  const [dueInvoicesExpanded, setDueInvoicesExpanded] = useState(false)
+  const [selectedDueInvoice, setSelectedDueInvoice] = useState(null)
 
   const fetchDashboard = async () => {
     try {
@@ -76,6 +80,12 @@ export default function DashboardPage() {
     return () => clearInterval(intervalId)
   }, [])
 
+  useEffect(() => {
+    if (!selectedDueInvoice || !dashboard?.dueInvoices) return
+    const refreshedInvoice = dashboard.dueInvoices.find((invoice) => invoice.invoiceId === selectedDueInvoice.invoiceId)
+    setSelectedDueInvoice(refreshedInvoice || null)
+  }, [dashboard?.dueInvoices, selectedDueInvoice?.invoiceId])
+
   if (loading) {
     return (
       <div className="space-y-6">
@@ -91,6 +101,18 @@ export default function DashboardPage() {
   if (!dashboard) return null
 
   const comparison = dashboard.comparisons || {}
+  const dueSummary = dashboard.dueSummary || {}
+  const searchTerm = dueSearch.trim().toLowerCase()
+  const filteredDueInvoices = (dashboard.dueInvoices || []).filter((invoice) => {
+    const matchesSearch = !searchTerm || [
+      invoice.invoiceNumber,
+      invoice.invoiceId,
+      invoice.customerName,
+      invoice.customerPhone,
+    ].some((value) => String(value || '').toLowerCase().includes(searchTerm))
+    const matchesStatus = dueStatusFilter === 'All' || invoice.paymentStatus === dueStatusFilter
+    return matchesSearch && matchesStatus
+  })
 
   return (
     <div className="space-y-6">
@@ -106,6 +128,104 @@ export default function DashboardPage() {
           </div>
         </div>
       </div>
+
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <MetricCard label="Total Sales" value={formatCurrency(dashboard.totalSales || 0)} hint="Invoice value before collections" accent="indigo" icon={FiDollarSign} />
+        <MetricCard label="Total Collected" value={formatCurrency(dashboard.totalCollected || 0)} hint="Payments actually received" accent="emerald" icon={FiTrendingUp} />
+        <MetricCard label="Total Outstanding Due" value={formatCurrency(dashboard.totalOutstandingDue || 0)} hint="Unpaid invoice balances" accent="rose" icon={FiAlertTriangle} />
+        <MetricCard label="Total Profit" value={formatCurrency(dashboard.totalProfit || 0)} hint="Sales less product cost and discounts" accent="teal" icon={FiBox} />
+      </div>
+
+      <section className="overflow-hidden rounded-[24px] border border-rose-200 bg-white shadow-sm dark:border-rose-900/50 dark:bg-slate-950">
+        <button
+          type="button"
+          aria-expanded={dueInvoicesExpanded}
+          onClick={() => setDueInvoicesExpanded((expanded) => !expanded)}
+          className="flex w-full flex-wrap items-center justify-between gap-3 p-4 text-left sm:p-5"
+        >
+          <span>
+            <span className="block font-semibold">Monthly Due Invoices</span>
+            <span className="mt-1 block text-xs text-slate-500">Current-month invoices with an outstanding balance</span>
+          </span>
+          <span className="flex items-center gap-4">
+            <span className="text-right">
+              <span className="block text-xs text-slate-500">Monthly Due Amount</span>
+              <span className="font-semibold text-rose-600 dark:text-rose-300">{formatCurrency(dueSummary.totalDueAmount || 0)}</span>
+            </span>
+            <span className="text-right">
+              <span className="block text-xs text-slate-500">Due Invoices</span>
+              <span className="font-semibold">{dueSummary.totalDueInvoices || 0}</span>
+            </span>
+            {dueInvoicesExpanded ? <FiChevronUp aria-hidden="true" /> : <FiChevronDown aria-hidden="true" />}
+          </span>
+        </button>
+
+        {dueInvoicesExpanded && (
+          <div className="border-t border-rose-100 px-4 pb-4 dark:border-rose-900/50 sm:px-5 sm:pb-5">
+            <div className="grid grid-cols-2 gap-2 py-3 sm:grid-cols-4">
+              {[
+                ['Monthly Due Amount', formatCurrency(dueSummary.totalDueAmount || 0)],
+                ['Monthly Due Invoice Count', dueSummary.totalDueInvoices || 0],
+                ['Monthly Partial Payment Count', dueSummary.partialPaymentInvoices || 0],
+                ['Monthly Unpaid Invoice Count', dueSummary.unpaidInvoices || 0],
+              ].map(([label, value]) => (
+                <div key={label} className="rounded-xl bg-rose-50 px-3 py-2 dark:bg-rose-950/30">
+                  <p className="text-xs text-slate-500">{label}</p>
+                  <p className="mt-1 text-sm font-semibold text-slate-900 dark:text-white">{value}</p>
+                </div>
+              ))}
+            </div>
+
+            <div className="mb-2 flex flex-col gap-2 sm:flex-row">
+              <label className="flex flex-1 items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-1.5 text-sm text-slate-500 dark:border-slate-800 dark:bg-slate-900">
+                <FiSearch />
+                <input value={dueSearch} onChange={(event) => setDueSearch(event.target.value)} placeholder="Search invoice, customer, or phone" className="w-full border-0 bg-transparent outline-none" />
+              </label>
+              <select value={dueStatusFilter} onChange={(event) => setDueStatusFilter(event.target.value)} aria-label="Filter due invoices by payment status" className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-1.5 text-sm dark:border-slate-800 dark:bg-slate-900">
+                <option value="All">All due statuses</option>
+                <option value="Partial">Partial</option>
+                <option value="Unpaid">Unpaid</option>
+              </select>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="min-w-full text-left text-sm">
+                <thead>
+                  <tr className="text-xs text-slate-500">
+                    <th className="py-2 pr-3 font-medium">Invoice Number</th>
+                    <th className="py-2 pr-3 font-medium">Customer Name</th>
+                    <th className="py-2 pr-3 font-medium">Invoice Date</th>
+                    <th className="py-2 pr-3 font-medium">Payment Status</th>
+                    <th className="py-2 text-right font-medium">Remaining Due</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredDueInvoices.map((invoice) => (
+                    <tr key={invoice.invoiceId} className="border-t border-slate-100 dark:border-slate-800">
+                      <td className="py-2 pr-3">
+                        <button onClick={() => setSelectedDueInvoice(invoice)} className="font-medium text-indigo-600 hover:underline dark:text-indigo-300">{invoice.invoiceNumber}</button>
+                      </td>
+                      <td className="py-2 pr-3">
+                        <button onClick={() => setSelectedDueInvoice(invoice)} className="text-left hover:underline">{invoice.customerName || 'Walk-in customer'}</button>
+                      </td>
+                      <td className="whitespace-nowrap py-2 pr-3 text-xs">{formatDate(invoice.createdAt)}</td>
+                      <td className="py-2 pr-3">
+                        <span className={`rounded-full px-2 py-0.5 text-xs ${invoice.paymentStatus === 'Partial' ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300' : 'bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-300'}`}>{invoice.paymentStatus}</span>
+                      </td>
+                      <td className="whitespace-nowrap py-2 text-right font-semibold text-rose-600 dark:text-rose-300">{formatCurrency(invoice.dueAmount)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {filteredDueInvoices.length === 0 && (
+                <div className="rounded-xl border border-dashed border-slate-300 p-4 text-center text-sm text-slate-500 dark:border-slate-700">
+                  {(dashboard.dueInvoices || []).length ? 'No due invoices match your search or filter.' : 'No current-month invoices have an outstanding balance.'}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+      </section>
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <MetricCard label="Today's Sales" value={formatCurrency(dashboard.todaySales)} hint="Net sales from today" accent="indigo" icon={FiDollarSign} />
@@ -139,6 +259,8 @@ export default function DashboardPage() {
           <div className="grid gap-3 md:grid-cols-2">
             {[
               ['Sales', formatCurrency(dashboard.summaryToday?.sales || 0)],
+              ['Collected', formatCurrency(dashboard.summaryToday?.collected || 0)],
+              ['Outstanding Due', formatCurrency(dashboard.summaryToday?.outstandingDue || 0)],
               ['Profit', formatCurrency(dashboard.summaryToday?.profit || 0)],
               ['Discount', formatCurrency(dashboard.summaryToday?.discount || 0)],
               ['Cost', formatCurrency(dashboard.summaryToday?.cost || 0)],
@@ -163,6 +285,8 @@ export default function DashboardPage() {
           <div className="grid gap-3 md:grid-cols-2">
             {[
               ['Sales', formatCurrency(dashboard.summaryMonthly?.sales || 0)],
+              ['Collected', formatCurrency(dashboard.summaryMonthly?.collected || 0)],
+              ['Outstanding Due', formatCurrency(dashboard.summaryMonthly?.outstandingDue || 0)],
               ['Profit', formatCurrency(dashboard.summaryMonthly?.profit || 0)],
               ['Discount', formatCurrency(dashboard.summaryMonthly?.discount || 0)],
               ['Cost', formatCurrency(dashboard.summaryMonthly?.cost || 0)],
@@ -381,6 +505,74 @@ export default function DashboardPage() {
           <div className="rounded-[20px] bg-slate-50 p-4 dark:bg-slate-900"><p className="text-sm text-slate-500">Most Used</p><p className="mt-2 text-xl font-semibold">{dashboard.serviceStats?.mostUsedService || '—'}</p></div>
         </div>
       </div>
+
+      {selectedDueInvoice && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4" onClick={() => setSelectedDueInvoice(null)}>
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="due-invoice-title"
+            className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-[28px] bg-white p-6 shadow-2xl dark:bg-slate-950"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="mb-5 flex items-start justify-between gap-4">
+              <div>
+                <h3 id="due-invoice-title" className="text-xl font-semibold">Invoice Details</h3>
+                <p className="text-sm text-slate-500">{selectedDueInvoice.invoiceNumber} · ID {selectedDueInvoice.invoiceId}</p>
+              </div>
+              <button onClick={() => setSelectedDueInvoice(null)} aria-label="Close invoice details" className="rounded-xl border border-slate-200 p-2 dark:border-slate-800"><FiX /></button>
+            </div>
+
+            <div className="grid gap-3 rounded-2xl bg-slate-50 p-4 text-sm dark:bg-slate-900 md:grid-cols-2">
+              <p><span className="text-slate-500">Customer:</span> {selectedDueInvoice.customerName || 'Walk-in customer'}</p>
+              <p><span className="text-slate-500">Phone:</span> {selectedDueInvoice.customerPhone || '—'}</p>
+              <p><span className="text-slate-500">Invoice Date:</span> {formatDate(selectedDueInvoice.createdAt)}</p>
+              <p><span className="text-slate-500">Payment Status:</span> {selectedDueInvoice.paymentStatus}</p>
+            </div>
+
+            <div className="mt-5 overflow-x-auto">
+              <table className="min-w-full text-left text-sm">
+                <thead><tr className="text-slate-500"><th className="py-2">Item</th><th className="py-2">Qty</th><th className="py-2">Unit Price</th><th className="py-2">Discount</th><th className="py-2">Tax</th><th className="py-2">Total</th></tr></thead>
+                <tbody>
+                  {(selectedDueInvoice.items || []).map((item, index) => (
+                    <tr key={`${item.productId || item.serviceId || item.name}-${index}`} className="border-t border-slate-200 dark:border-slate-800">
+                      <td className="py-2">{item.name || item.description || 'Invoice item'}</td>
+                      <td className="py-2">{item.quantity || 0}</td>
+                      <td className="py-2">{formatCurrency(item.unitPrice || 0)}</td>
+                      <td className="py-2">{formatCurrency(item.discount || 0)}</td>
+                      <td className="py-2">{formatCurrency(item.tax || 0)}</td>
+                      <td className="py-2">{formatCurrency(item.total || 0)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="mt-5 grid gap-2 rounded-2xl bg-slate-50 p-4 text-sm dark:bg-slate-900 sm:grid-cols-2">
+              <p>Subtotal <span className="float-right font-semibold">{formatCurrency(selectedDueInvoice.subtotal)}</span></p>
+              <p>Discount <span className="float-right font-semibold">{formatCurrency(selectedDueInvoice.discount)}</span></p>
+              <p>Tax <span className="float-right font-semibold">{formatCurrency(selectedDueInvoice.tax)}</span></p>
+              <p>Total Invoice Amount <span className="float-right font-semibold">{formatCurrency(selectedDueInvoice.totalAmount)}</span></p>
+              <p>Paid Amount <span className="float-right font-semibold">{formatCurrency(selectedDueInvoice.paidAmount)}</span></p>
+              <p className="font-semibold text-rose-600 dark:text-rose-300">Remaining Due <span className="float-right">{formatCurrency(selectedDueInvoice.dueAmount)}</span></p>
+            </div>
+
+            <div className="mt-5">
+              <h4 className="mb-2 font-semibold">Payment Records</h4>
+              {(selectedDueInvoice.payments || []).length ? (
+                <div className="space-y-2">
+                  {selectedDueInvoice.payments.map((payment, index) => (
+                    <div key={`${payment.paidAt}-${index}`} className="flex justify-between rounded-xl border border-slate-200 p-3 text-sm dark:border-slate-800">
+                      <span>{formatDate(payment.paidAt)} · {payment.paymentMethod || 'Cash'}</span>
+                      <span className="font-semibold">{formatCurrency(payment.amount)}</span>
+                    </div>
+                  ))}
+                </div>
+              ) : <p className="text-sm text-slate-500">No payments recorded for this invoice.</p>}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

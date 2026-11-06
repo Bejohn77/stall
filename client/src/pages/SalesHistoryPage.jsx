@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import toast from 'react-hot-toast'
-import { FiDownload, FiEdit2, FiPrinter, FiSearch, FiTrash2 } from 'react-icons/fi'
+import { FiDollarSign, FiDownload, FiEdit2, FiPrinter, FiSearch, FiTrash2 } from 'react-icons/fi'
 import api from '../services/api'
 import { formatCurrency, formatDate } from '../utils/formatters'
 import { buildInvoicePrintHtml } from '../utils/printInvoice'
@@ -13,6 +13,10 @@ export default function SalesHistoryPage() {
   const [settings, setSettings] = useState({ storeName: '', address: '', phone: '' })
   const [products, setProducts] = useState([])
   const [editingSale, setEditingSale] = useState(null)
+  const [collectingSale, setCollectingSale] = useState(null)
+  const [collectionAmount, setCollectionAmount] = useState('')
+  const [collectionMethod, setCollectionMethod] = useState('Cash')
+  const [savingPayment, setSavingPayment] = useState(false)
   const [editForm, setEditForm] = useState({
     customerName: '',
     customerPhone: '',
@@ -46,6 +50,33 @@ export default function SalesHistoryPage() {
         setSettings(data || {})
       } catch {
         setSettings({ storeName: '', address: '', phone: '' })
+      }
+    }
+
+    const openCollectionModal = (sale) => {
+      setCollectingSale(sale)
+      setCollectionAmount(String(Number(sale.dueAmount || 0)))
+      setCollectionMethod('Cash')
+    }
+
+    const collectPayment = async () => {
+      if (!collectingSale) return
+      const amount = Number(collectionAmount)
+      if (!Number.isFinite(amount) || amount <= 0 || amount > Number(collectingSale.dueAmount || 0)) {
+        toast.error('Enter a payment greater than zero and no more than the outstanding due.')
+        return
+      }
+
+      setSavingPayment(true)
+      try {
+        await api.post(`/sales/${collectingSale._id}/payments`, { amount, paymentMethod: collectionMethod })
+        toast.success('Payment recorded')
+        setCollectingSale(null)
+        await fetchSales()
+      } catch (error) {
+        toast.error(error.response?.data?.message || 'Failed to record payment')
+      } finally {
+        setSavingPayment(false)
       }
     }
 
@@ -187,7 +218,6 @@ export default function SalesHistoryPage() {
         customerName: editForm.customerName.trim(),
         customerPhone: editForm.customerPhone.trim(),
         paymentMethod: editForm.paymentMethod,
-        paidAmount: Number(editForm.paidAmount || 0),
         items: editForm.items.map((item) => ({
           type: item.type,
           productId: item.productId,
@@ -232,7 +262,7 @@ export default function SalesHistoryPage() {
       current.items += (sale.items || []).reduce((sum, item) => sum + Number(item.quantity || 0), 0)
       current.sales += Number(sale.grandTotal || 0)
       current.paid += Number(sale.paidAmount || 0)
-      current.due += Number(sale.dueAmount || 0)
+      current.due += Number(sale.dueAmount ?? Math.max(0, Number(sale.grandTotal || 0) - Number(sale.paidAmount || 0)))
 
       groups.set(key, current)
     })
@@ -400,10 +430,18 @@ export default function SalesHistoryPage() {
                     </td>
                     <td className="py-4">{(sale.items || []).map((item) => `${item.name} ×${item.quantity}`).join(', ')}</td>
                     <td className="py-4">{formatCurrency(sale.grandTotal)}</td>
-                    <td className="py-4">{sale.paymentMethod}</td>
+                    <td className="py-4">
+                      <div>{sale.paymentStatus || (Number(sale.dueAmount || 0) === 0 ? 'Paid' : Number(sale.paidAmount || 0) > 0 ? 'Partial' : 'Unpaid')}</div>
+                      <div className="text-xs text-slate-500">Paid {formatCurrency(sale.paidAmount || 0)} · Due {formatCurrency(sale.dueAmount || 0)}</div>
+                    </td>
                     <td className="py-4">{formatDate(sale.createdAt)}</td>
                     <td className="py-4">
                       <div className="flex gap-2">
+                        {Number(sale.dueAmount || 0) > 0 ? (
+                          <button onClick={() => openCollectionModal(sale)} className="flex items-center gap-1 rounded-2xl bg-emerald-100 px-2 py-2 text-xs font-medium text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300">
+                            <FiDollarSign /> Collect Due
+                          </button>
+                        ) : null}
                         <button onClick={() => openEditModal(sale)} className="flex items-center gap-1 rounded-2xl bg-indigo-100 px-2 py-2 text-xs font-medium text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-300">
                           <FiEdit2 /> Edit
                         </button>
@@ -415,6 +453,32 @@ export default function SalesHistoryPage() {
                 ))}
               </tbody>
             </table>
+          </div>
+        )}
+        {collectingSale && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4">
+            <div className="w-full max-w-md rounded-[28px] bg-white p-6 shadow-2xl dark:bg-slate-950">
+              <div className="mb-5">
+                <h3 className="text-xl font-semibold">Collect Invoice Due</h3>
+                <p className="text-sm text-slate-500">{collectingSale.invoiceNumber} · Remaining {formatCurrency(collectingSale.dueAmount)}</p>
+              </div>
+              <label className="block text-sm font-medium">
+                Payment amount
+                <input type="number" min="0.01" max={collectingSale.dueAmount} step="0.01" value={collectionAmount} onChange={(event) => setCollectionAmount(event.target.value)} className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2.5 dark:border-slate-800 dark:bg-slate-900" />
+              </label>
+              <label className="mt-4 block text-sm font-medium">
+                Payment method
+                <select value={collectionMethod} onChange={(event) => setCollectionMethod(event.target.value)} className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2.5 dark:border-slate-800 dark:bg-slate-900">
+                  <option value="Cash">Cash</option>
+                  <option value="Mobile Banking">Mobile Banking</option>
+                  <option value="Card">Card</option>
+                </select>
+              </label>
+              <div className="mt-6 flex justify-end gap-3">
+                <button onClick={() => setCollectingSale(null)} disabled={savingPayment} className="rounded-2xl border border-slate-200 px-4 py-2 text-sm dark:border-slate-800">Cancel</button>
+                <button onClick={collectPayment} disabled={savingPayment} className="rounded-2xl bg-emerald-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-70">{savingPayment ? 'Saving…' : 'Record Payment'}</button>
+              </div>
+            </div>
           </div>
         )}
       </div>
@@ -446,10 +510,6 @@ export default function SalesHistoryPage() {
                   <option value="Mobile Banking">Mobile Banking</option>
                   <option value="Card">Card</option>
                 </select>
-              </label>
-              <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
-                Paid Amount
-                <input type="number" min="0" step="0.01" value={editForm.paidAmount} onChange={(e) => setEditForm((current) => ({ ...current, paidAmount: e.target.value }))} className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2.5 dark:border-slate-800 dark:bg-slate-900" />
               </label>
             </div>
 

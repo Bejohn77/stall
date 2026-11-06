@@ -4,10 +4,10 @@ A modern single-owner stall management and reporting web app built with React, V
 
 ## Features
 
-- Dashboard with sales, profit, inventory, and recent activity
+- Dashboard with total sales, collected payments, outstanding due, profit, inventory, and recent activity
 - Product management with search, filtering, low stock, and out of stock badges
 - Fast checkout flow with cart management, discounts, and payment methods
-- Sales history with invoice tracking and delete actions
+- Sales history with invoice payment status, due collection, and delete actions
 - Reports for daily, weekly, monthly, and custom ranges with export options
 - Settings for store details and Telegram notifications
 

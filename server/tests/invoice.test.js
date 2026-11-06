@@ -1,6 +1,6 @@
 const test = require('node:test')
 const assert = require('node:assert/strict')
-const { calculateInvoiceProfit, calculateInvoiceSummary, getInventoryUpdates, validateInvoicePayload } = require('../utils/invoice')
+const { calculateInvoiceProfit, calculateInvoiceSummary, getInventoryUpdates, getPaymentStatus, validateInvoicePayload } = require('../utils/invoice')
 
 test('mixed invoice totals are calculated without affecting service inventory', () => {
   const items = [
@@ -34,6 +34,7 @@ test('mixed invoice totals are calculated without affecting service inventory', 
   assert.equal(summary.grandTotal, 385)
   assert.equal(summary.paidAmount, 300)
   assert.equal(summary.dueAmount, 85)
+  assert.equal(summary.paymentStatus, 'Partial')
   assert.equal(summary.change, 0)
   assert.deepEqual(inventoryUpdates, [{ productId: 'prod-1', quantity: 2 }])
 })
@@ -111,24 +112,23 @@ test('custom service validation rejects incomplete entries', () => {
   assert.match(result.message, /service name|quantity|unit price/i)
 })
 
-test('paid amount validation rejects missing or non-positive values', () => {
-  const missing = validateInvoicePayload({
+test('paid amount validation allows unpaid invoices and rejects negative values', () => {
+  const unpaid = validateInvoicePayload({
     items: [{ type: 'service', name: 'Repair', quantity: 1, unitPrice: 10 }],
     paidAmount: null,
-  })
-  const zero = validateInvoicePayload({
-    items: [{ type: 'service', name: 'Repair', quantity: 1, unitPrice: 10 }],
-    paidAmount: 0,
   })
   const negative = validateInvoicePayload({
     items: [{ type: 'service', name: 'Repair', quantity: 1, unitPrice: 10 }],
     paidAmount: -5,
   })
 
-  assert.equal(missing.ok, false)
-  assert.equal(missing.message, 'Paid amount is required before saving the invoice.')
-  assert.equal(zero.ok, false)
-  assert.equal(zero.message, 'Paid amount is required before saving the invoice.')
+  assert.equal(unpaid.ok, true)
   assert.equal(negative.ok, false)
-  assert.equal(negative.message, 'Paid amount is required before saving the invoice.')
+  assert.equal(negative.message, 'Paid amount must be a valid non-negative number.')
+})
+
+test('invoice payment status distinguishes paid, partial, and unpaid balances', () => {
+  assert.equal(getPaymentStatus(100, 100), 'Paid')
+  assert.equal(getPaymentStatus(100, 25), 'Partial')
+  assert.equal(getPaymentStatus(100, 0), 'Unpaid')
 })

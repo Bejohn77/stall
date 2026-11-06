@@ -3,7 +3,7 @@ const Sale = require('../models/Sale')
 const ServiceBill = require('../models/ServiceBill')
 const Damage = require('../models/Damage')
 const MonthlyCost = require('../models/MonthlyCost')
-const { calculateSaleProfit, calculatePeriodProfitMetrics } = require('../utils/invoice')
+const { calculateSaleProfit, calculatePeriodProfitMetrics, getSalePaymentSummary } = require('../utils/invoice')
 const { getMode, getStore } = require('../utils/store')
 
 function toNumber(value) {
@@ -124,6 +124,68 @@ function buildCostBreakdown(costs = []) {
 
 function getSaleValue(sale = {}) {
   return toNumber(sale.grandTotal ?? sale.subtotal ?? 0)
+}
+
+function getCollectedValue(sales = [], start, end) {
+  return sales.reduce((sum, sale) => {
+    const payments = getSalePaymentSummary(sale).payments
+    return sum + payments.reduce((paymentSum, payment) => {
+      const paidAt = new Date(payment.paidAt || sale.createdAt)
+      if (start && paidAt < start) return paymentSum
+      if (end && paidAt > end) return paymentSum
+      return paymentSum + toNumber(payment.amount)
+    }, 0)
+  }, 0)
+}
+
+function getOutstandingValue(sales = []) {
+  return sales.reduce((sum, sale) => sum + getSalePaymentSummary(sale).dueAmount, 0)
+}
+
+function buildOutstandingInvoiceSummary(sales = [], startDate, endDate = new Date()) {
+  const dueInvoices = sales
+    .map((sale) => {
+      const paymentSummary = getSalePaymentSummary(sale)
+      const invoice = sale.toObject ? sale.toObject() : sale
+      return {
+        _id: invoice._id,
+        invoiceId: String(invoice._id || invoice.invoiceNumber || ''),
+        invoiceNumber: invoice.invoiceNumber || String(invoice._id || ''),
+        customerName: invoice.customerName || '',
+        customerPhone: invoice.customerPhone || '',
+        createdAt: invoice.createdAt,
+        subtotal: toNumber(invoice.subtotal),
+        discount: toNumber(invoice.discount),
+        tax: toNumber(invoice.tax),
+        totalAmount: paymentSummary.totalAmount,
+        grandTotal: paymentSummary.totalAmount,
+        paidAmount: paymentSummary.paidAmount,
+        dueAmount: paymentSummary.dueAmount,
+        paymentStatus: paymentSummary.paymentStatus,
+        paymentMethod: invoice.paymentMethod || '',
+        change: toNumber(invoice.change),
+        items: invoice.items || [],
+        payments: paymentSummary.payments,
+      }
+    })
+    .filter((sale) => {
+      const createdAt = new Date(sale.createdAt || 0)
+      return sale.dueAmount > 0
+        && Number.isFinite(createdAt.getTime())
+        && (!startDate || createdAt >= startDate)
+        && (!endDate || createdAt <= endDate)
+    })
+    .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0))
+
+  return {
+    dueInvoices,
+    dueSummary: {
+      totalDueAmount: dueInvoices.reduce((sum, sale) => sum + sale.dueAmount, 0),
+      totalDueInvoices: dueInvoices.length,
+      partialPaymentInvoices: dueInvoices.filter((sale) => sale.paymentStatus === 'Partial').length,
+      unpaidInvoices: dueInvoices.filter((sale) => sale.paymentStatus === 'Unpaid').length,
+    },
+  }
 }
 
 function buildPeriodMetrics(sales = [], damages = [], costs = []) {
@@ -268,9 +330,25 @@ async function getDashboard(req, res, next) {
       const yesterdayMetrics = buildPeriodMetrics(yesterdaySales, yesterdayDamages, [])
       const monthlyMetrics = buildPeriodMetrics(monthlySales, monthlyDamages, monthlyCosts)
       const lastMonthMetrics = buildPeriodMetrics(lastMonthSales, lastMonthDamages, lastMonthCosts)
+      const allTimeMetrics = buildPeriodMetrics(store.sales, store.damages, store.monthlyCosts)
+      const todayCollected = getCollectedValue(store.sales, todayRange.start, todayRange.end)
+      const monthlyCollected = getCollectedValue(store.sales, monthRange.start, monthRange.end)
+      const totalCollected = getCollectedValue(store.sales)
+      const totalOutstandingDue = getOutstandingValue(store.sales)
+      const outstandingInvoiceData = buildOutstandingInvoiceSummary(store.sales, monthRange.start, new Date())
       const allTimeDiscount = store.sales.reduce((sum, sale) => sum + toNumber(sale.discount || 0), 0)
 
       const dashboardPayload = {
+        totalSales: allTimeMetrics.salesValue,
+        totalCollected,
+        totalOutstandingDue,
+        dueInvoices: outstandingInvoiceData.dueInvoices,
+        dueSummary: outstandingInvoiceData.dueSummary,
+        totalProfit: allTimeMetrics.grossProfitValue,
+        todayCollected,
+        todayOutstandingDue: getOutstandingValue(todaySales),
+        monthlyCollected,
+        monthlyOutstandingDue: getOutstandingValue(monthlySales),
         todaySales: todayMetrics.salesValue,
         todayDiscount: todayMetrics.discountValue,
         todayProfit: todayMetrics.profitValue,
@@ -282,7 +360,7 @@ async function getDashboard(req, res, next) {
         monthlyProfit: monthlyMetrics.profitValue,
         monthlyCost: monthlyMetrics.businessCostValue,
         totalDiscounts: allTimeDiscount,
-        netProfit: monthlyMetrics.netProfitValue,
+        netProfit: monthlyMetrics.profitValue,
         totalProducts,
         totalStockQuantity,
         totalBuyingValue,
@@ -301,6 +379,8 @@ async function getDashboard(req, res, next) {
         highestSaleToday: todayMetrics.highestSale,
         summaryToday: {
           sales: todayMetrics.salesValue,
+          collected: todayCollected,
+          outstandingDue: getOutstandingValue(todaySales),
           profit: todayMetrics.profitValue,
           discount: todayMetrics.discountValue,
           cost: todayMetrics.businessCostValue,
@@ -310,11 +390,13 @@ async function getDashboard(req, res, next) {
         },
         summaryMonthly: {
           sales: monthlyMetrics.salesValue,
+          collected: monthlyCollected,
+          outstandingDue: getOutstandingValue(monthlySales),
           profit: monthlyMetrics.profitValue,
           discount: monthlyMetrics.discountValue,
           cost: monthlyMetrics.businessCostValue,
           damage: monthlyMetrics.damageCostValue,
-          netProfit: monthlyMetrics.netProfitValue,
+          netProfit: monthlyMetrics.profitValue,
         },
         comparisons: {
           sales: buildComparison(todayMetrics.salesValue, yesterdayMetrics.salesValue),
@@ -346,11 +428,14 @@ async function getDashboard(req, res, next) {
       return res.json(dashboardPayload)
     }
 
-    const [todaySales, yesterdaySales, monthlySales, lastMonthSales, totalProducts, lowStockProducts, recentSales, lowStockItems, todayServiceBills, todayDamages, yesterdayDamages, monthlyDamages, lastMonthDamages, monthlyCosts, lastMonthCosts] = await Promise.all([
+    const [todaySales, yesterdaySales, monthlySales, lastMonthSales, allSales, allDamages, allCosts, totalProducts, lowStockProducts, recentSales, lowStockItems, todayServiceBills, todayDamages, yesterdayDamages, monthlyDamages, lastMonthDamages, monthlyCosts, lastMonthCosts] = await Promise.all([
       Sale.find({ createdAt: { $gte: todayRange.start, $lte: todayRange.end } }),
       Sale.find({ createdAt: { $gte: yesterdayRange.start, $lte: yesterdayRange.end } }),
       Sale.find({ createdAt: { $gte: monthRange.start, $lte: monthRange.end } }),
       Sale.find({ createdAt: { $gte: lastMonthRange.start, $lte: lastMonthRange.end } }),
+      Sale.find({}),
+      Damage.find({}),
+      MonthlyCost.find({}),
       Product.countDocuments(),
       Product.countDocuments({ stockQuantity: { $lte: 3 } }),
       Sale.find().sort({ createdAt: -1 }).limit(5),
@@ -370,7 +455,13 @@ async function getDashboard(req, res, next) {
       buildPeriodMetrics(monthlySales, monthlyDamages, monthlyCosts),
       buildPeriodMetrics(lastMonthSales, lastMonthDamages, lastMonthCosts),
     ]
-    const allTimeDiscount = (await Sale.find({})).reduce((sum, sale) => sum + toNumber(sale.discount || 0), 0)
+    const allTimeDiscount = allSales.reduce((sum, sale) => sum + toNumber(sale.discount || 0), 0)
+    const allTimeMetrics = buildPeriodMetrics(allSales, allDamages, allCosts)
+    const todayCollected = getCollectedValue(allSales, todayRange.start, todayRange.end)
+    const monthlyCollected = getCollectedValue(allSales, monthRange.start, monthRange.end)
+    const totalCollected = getCollectedValue(allSales)
+    const totalOutstandingDue = getOutstandingValue(allSales)
+    const outstandingInvoiceData = buildOutstandingInvoiceSummary(allSales, monthRange.start, new Date())
     const inventoryCount = await Product.countDocuments()
     const inventorySummary = await Product.aggregate([
       {
@@ -388,6 +479,16 @@ async function getDashboard(req, res, next) {
     const outOfStockProducts = await Product.countDocuments({ stockQuantity: { $lte: 0 } })
 
     res.json({
+      totalSales: allTimeMetrics.salesValue,
+      totalCollected,
+      totalOutstandingDue,
+      dueInvoices: outstandingInvoiceData.dueInvoices,
+      dueSummary: outstandingInvoiceData.dueSummary,
+      totalProfit: allTimeMetrics.grossProfitValue,
+      todayCollected,
+      todayOutstandingDue: getOutstandingValue(todaySales),
+      monthlyCollected,
+      monthlyOutstandingDue: getOutstandingValue(monthlySales),
       todaySales: todayMetrics.salesValue,
       todayDiscount: todayMetrics.discountValue,
       todayProfit: todayMetrics.profitValue,
@@ -399,7 +500,7 @@ async function getDashboard(req, res, next) {
       monthlyProfit: monthlyMetrics.profitValue,
       monthlyCost: monthlyMetrics.businessCostValue,
       totalDiscounts: allTimeDiscount,
-      netProfit: monthlyMetrics.netProfitValue,
+      netProfit: monthlyMetrics.profitValue,
       totalProducts: inventoryCount,
       totalStockQuantity,
       totalBuyingValue,
@@ -418,6 +519,8 @@ async function getDashboard(req, res, next) {
       highestSaleToday: todayMetrics.highestSale,
       summaryToday: {
         sales: todayMetrics.salesValue,
+        collected: todayCollected,
+        outstandingDue: getOutstandingValue(todaySales),
         profit: todayMetrics.profitValue,
         discount: todayMetrics.discountValue,
         cost: todayMetrics.businessCostValue,
@@ -427,11 +530,13 @@ async function getDashboard(req, res, next) {
       },
       summaryMonthly: {
         sales: monthlyMetrics.salesValue,
+        collected: monthlyCollected,
+        outstandingDue: getOutstandingValue(monthlySales),
         profit: monthlyMetrics.profitValue,
         discount: monthlyMetrics.discountValue,
         cost: monthlyMetrics.businessCostValue,
         damage: monthlyMetrics.damageCostValue,
-        netProfit: monthlyMetrics.netProfitValue,
+        netProfit: monthlyMetrics.profitValue,
       },
       comparisons: {
         sales: buildComparison(todayMetrics.salesValue, yesterdayMetrics.salesValue),
@@ -464,4 +569,11 @@ async function getDashboard(req, res, next) {
   }
 }
 
-module.exports = { getDashboard, calculateNetProfit, calculateProfitValue, calculatePercentageChange, getSaleValue }
+module.exports = {
+  getDashboard,
+  calculateNetProfit,
+  calculateProfitValue,
+  calculatePercentageChange,
+  getSaleValue,
+  buildOutstandingInvoiceSummary,
+}

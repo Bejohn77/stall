@@ -102,6 +102,7 @@ export function buildInvoicePrintHtml(invoice = {}, settings = {}) {
           <div><span>Tax</span><span>${formatCurrency(invoice.tax || 0)}</span></div>
           <div class="grand"><span>Grand Total</span><span>${formatCurrency(invoice.grandTotal || 0)}</span></div>
           <div><span>Payment Method</span><span>${escapeHtml(invoice.paymentMethod || 'Cash')}</span></div>
+          <div><span>Payment Status</span><span>${escapeHtml(invoice.paymentStatus || 'Unpaid')}</span></div>
           <div><span>Paid</span><span>${formatCurrency(invoice.paidAmount || 0)}</span></div>
           <div><span>Due</span><span>${formatCurrency(invoice.dueAmount || 0)}</span></div>
           <div><span>Change</span><span>${formatCurrency(invoice.change || 0)}</span></div>

@@ -1,5 +1,11 @@
 const mongoose = require('mongoose')
 
+const paymentSchema = new mongoose.Schema({
+  amount: { type: Number, required: true, min: 0 },
+  paymentMethod: { type: String, default: 'Cash' },
+  paidAt: { type: Date, default: Date.now },
+}, { _id: false })
+
 const saleSchema = new mongoose.Schema({
   invoiceNumber: { type: String, required: true, unique: true },
   customerName: String,
@@ -28,6 +34,8 @@ const saleSchema = new mongoose.Schema({
   paymentMethod: String,
   paidAmount: Number,
   dueAmount: Number,
+  paymentStatus: { type: String, enum: ['Paid', 'Partial', 'Unpaid'] },
+  payments: { type: [paymentSchema], default: [] },
   change: Number,
   createdAt: { type: Date, default: Date.now },
 })

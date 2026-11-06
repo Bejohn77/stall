@@ -111,9 +111,9 @@ function calculateInvoiceSummary(items = [], paidAmount = 0) {
   const discount = normalizedItems.reduce((sum, item) => sum + item.discount, 0)
   const tax = normalizedItems.reduce((sum, item) => sum + item.tax, 0)
   const grandTotal = Math.max(0, subtotal - discount + tax)
-  const amountPaid = Number(paidAmount || 0)
+  const amountPaid = Math.min(Math.max(0, Number(paidAmount || 0)), grandTotal)
   const dueAmount = Math.max(0, grandTotal - amountPaid)
-  const change = Math.max(0, amountPaid - grandTotal)
+  const change = Math.max(0, Number(paidAmount || 0) - grandTotal)
 
   return {
     items: normalizedItems,
@@ -124,6 +124,51 @@ function calculateInvoiceSummary(items = [], paidAmount = 0) {
     paidAmount: amountPaid,
     dueAmount,
     change,
+    paymentStatus: getPaymentStatus(grandTotal, amountPaid),
+  }
+}
+
+function getPaymentStatus(totalAmount, paidAmount) {
+  const total = Math.max(0, Number(totalAmount || 0))
+  const paid = Math.min(total, Math.max(0, Number(paidAmount || 0)))
+  if (paid === 0 && total > 0) return 'Unpaid'
+  if (paid < total) return 'Partial'
+  return 'Paid'
+}
+
+function getSalePayments(sale = {}) {
+  const payments = (sale.payments || [])
+    .filter((payment) => Number(payment?.amount) > 0)
+    .map((payment) => ({
+      amount: Number(payment.amount),
+      paymentMethod: payment.paymentMethod || sale.paymentMethod || 'Cash',
+      paidAt: payment.paidAt || sale.createdAt,
+    }))
+
+  if (payments.length) return payments
+
+  const legacyPaidAmount = Math.min(
+    Math.max(0, Number(sale.paidAmount || 0)),
+    Math.max(0, Number(sale.grandTotal ?? sale.subtotal ?? 0)),
+  )
+
+  return legacyPaidAmount > 0
+    ? [{ amount: legacyPaidAmount, paymentMethod: sale.paymentMethod || 'Cash', paidAt: sale.createdAt }]
+    : []
+}
+
+function getSalePaymentSummary(sale = {}) {
+  const totalAmount = Math.max(0, Number(sale.grandTotal ?? sale.subtotal ?? 0))
+  const payments = getSalePayments(sale)
+  const paidAmount = Math.min(totalAmount, payments.reduce((sum, payment) => sum + payment.amount, 0))
+  const dueAmount = Math.max(0, totalAmount - paidAmount)
+
+  return {
+    totalAmount,
+    paidAmount,
+    dueAmount,
+    paymentStatus: getPaymentStatus(totalAmount, paidAmount),
+    payments,
   }
 }
 
@@ -164,22 +209,25 @@ function validateInvoicePayload(payload) {
     }
   }
 
-  const rawPaidAmount = payload?.paidAmount
-  let normalizedPaidAmount = null
-
-  if (rawPaidAmount === '' || rawPaidAmount === null || rawPaidAmount === undefined) {
-    normalizedPaidAmount = null
-  } else if (typeof rawPaidAmount === 'string' && rawPaidAmount.trim() === '') {
-    normalizedPaidAmount = null
-  } else {
-    normalizedPaidAmount = Number(rawPaidAmount)
-  }
-
-  if (normalizedPaidAmount === null || Number.isNaN(normalizedPaidAmount) || normalizedPaidAmount <= 0) {
-    return { ok: false, message: 'Paid amount is required before saving the invoice.' }
+  const rawPaidAmount = payload?.paidAmount ?? 0
+  const normalizedPaidAmount = rawPaidAmount === '' ? 0 : Number(rawPaidAmount)
+  if (!Number.isFinite(normalizedPaidAmount) || normalizedPaidAmount < 0) {
+    return { ok: false, message: 'Paid amount must be a valid non-negative number.' }
   }
 
   return { ok: true }
 }
 
-module.exports = { calculateInvoiceProfit, calculateSaleGrossProfit, calculateSaleDiscount, calculateSaleProfit, calculatePeriodProfitMetrics, calculateInvoiceSummary, getInventoryUpdates, validateInvoicePayload }
+module.exports = {
+  calculateInvoiceProfit,
+  calculateSaleGrossProfit,
+  calculateSaleDiscount,
+  calculateSaleProfit,
+  calculatePeriodProfitMetrics,
+  calculateInvoiceSummary,
+  getPaymentStatus,
+  getSalePayments,
+  getSalePaymentSummary,
+  getInventoryUpdates,
+  validateInvoicePayload,
+}

@@ -152,8 +152,7 @@ export default function NewSalePage() {
     return Number.isFinite(numericValue) ? numericValue : 0
   }, [paidAmount])
 
-  const hasValidPaidAmount = parsedPaidAmount > 0
-  const canSaveInvoice = lineItems.length > 0 && hasValidPaidAmount
+  const canSaveInvoice = lineItems.length > 0
 
   const summary = useMemo(() => {
     const items = lineItems.map((item) => {
@@ -204,10 +203,6 @@ export default function NewSalePage() {
 
   const completeTransaction = async () => {
     if (!lineItems.length) return toast.error('Add at least one product or service before saving the bill')
-
-    if (!hasValidPaidAmount) {
-      return toast.error('Please enter the paid amount before saving the invoice.')
-    }
 
     const validationMessage = validateInvoiceItems(summary.items)
     if (validationMessage) return toast.error(validationMessage)
@@ -457,11 +452,9 @@ export default function NewSalePage() {
               </div>
               <label className="mb-3 block text-sm font-medium">
                 Paid amount
-                <input type="number" min="0" value={paidAmount} onChange={(e) => setPaidAmount(e.target.value)} className="mt-2 w-full rounded-2xl border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-950" />
+                <input type="number" min="0" step="0.01" value={paidAmount} onChange={(e) => setPaidAmount(e.target.value)} className="mt-2 w-full rounded-2xl border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-950" />
               </label>
-              {lineItems.length > 0 && !hasValidPaidAmount ? (
-                <p className="mb-3 text-sm text-amber-600">Please enter the paid amount before saving the invoice.</p>
-              ) : null}
+              <p className="mb-3 text-sm text-slate-500">Enter 0 or leave blank to save this invoice as unpaid.</p>
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between"><span>Subtotal</span><span>{formatCurrency(summary.subtotal)}</span></div>
                 <div className="flex justify-between"><span>Discount</span><span>-{formatCurrency(summary.discount)}</span></div>

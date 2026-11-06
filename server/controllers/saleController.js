@@ -2,7 +2,7 @@ const Product = require('../models/Product')
 const Sale = require('../models/Sale')
 const Setting = require('../models/Setting')
 const { sendSaleNotification, sendSaleDeletedNotification, sendSaleUpdatedNotification, sendLowStockNotification, sendStockUpdatedNotification, shouldSendLowStockNotification } = require('../services/telegramService')
-const { calculateInvoiceProfit, calculateInvoiceSummary, validateInvoicePayload } = require('../utils/invoice')
+const { calculateInvoiceProfit, calculateInvoiceSummary, getSalePaymentSummary, validateInvoicePayload } = require('../utils/invoice')
 const { getMode, getStore, createId } = require('../utils/store')
 
 async function generateInvoiceNumber() {
@@ -100,6 +100,10 @@ async function createSale(req, res, next) {
         paymentMethod,
         paidAmount: summary.paidAmount,
         dueAmount: summary.dueAmount,
+        paymentStatus: summary.paymentStatus,
+        payments: summary.paidAmount > 0
+          ? [{ amount: summary.paidAmount, paymentMethod, paidAt: new Date().toISOString() }]
+          : [],
         change: summary.change,
         createdAt: new Date().toISOString(),
       }
@@ -174,6 +178,10 @@ async function createSale(req, res, next) {
       paymentMethod,
       paidAmount: summary.paidAmount,
       dueAmount: summary.dueAmount,
+      paymentStatus: summary.paymentStatus,
+      payments: summary.paidAmount > 0
+        ? [{ amount: summary.paidAmount, paymentMethod, paidAt: new Date() }]
+        : [],
       change: summary.change,
     })
 
@@ -191,12 +199,25 @@ async function createSale(req, res, next) {
 
 async function listSales(req, res, next) {
   try {
+    const withPaymentSummary = (sale) => {
+      const plainSale = sale.toObject ? sale.toObject() : sale
+      const paymentSummary = getSalePaymentSummary(plainSale)
+      return {
+        ...plainSale,
+        paidAmount: paymentSummary.paidAmount,
+        dueAmount: paymentSummary.dueAmount,
+        paymentStatus: paymentSummary.paymentStatus,
+      }
+    }
+
     if (getMode() === 'memory') {
       const store = getStore()
-      return res.json([...store.sales].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)))
+      return res.json([...store.sales]
+        .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+        .map(withPaymentSummary))
     }
     const sales = await Sale.find().sort({ createdAt: -1 })
-    res.json(sales)
+    res.json(sales.map(withPaymentSummary))
   } catch (error) {
     next(error)
   }
@@ -224,6 +245,7 @@ async function updateSale(req, res, next) {
       settings = await Setting.findOne()
     }
 
+    const existingPaymentSummary = getSalePaymentSummary(existingSale)
     const previousTotal = Number(existingSale.grandTotal || 0)
 
     if (getMode() === 'memory') {
@@ -302,7 +324,7 @@ async function updateSale(req, res, next) {
       })
     }
 
-    const summary = calculateInvoiceSummary(normalizedItems, Number(paidAmount || 0))
+    const summary = calculateInvoiceSummary(normalizedItems, existingPaymentSummary.paidAmount)
     const profit = calculateInvoiceProfit(normalizedItems)
 
     for (const update of inventoryUpdates) {
@@ -326,6 +348,7 @@ async function updateSale(req, res, next) {
       paymentMethod,
       paidAmount: summary.paidAmount,
       dueAmount: summary.dueAmount,
+      paymentStatus: summary.paymentStatus,
       change: summary.change,
       updatedAt: new Date().toISOString(),
     }
@@ -346,6 +369,56 @@ async function updateSale(req, res, next) {
     }
 
     return res.json(updatedSale)
+  } catch (error) {
+    next(error)
+  }
+}
+
+async function recordSalePayment(req, res, next) {
+  try {
+    const amount = Number(req.body.amount)
+    const paymentMethod = String(req.body.paymentMethod || 'Cash').trim()
+
+    if (!Number.isFinite(amount) || amount <= 0) {
+      return res.status(400).json({ success: false, message: 'Payment amount must be greater than zero.' })
+    }
+
+    let sale
+    let store
+    if (getMode() === 'memory') {
+      store = getStore()
+      sale = store.sales.find((entry) => entry._id === req.params.id)
+    } else {
+      sale = await Sale.findById(req.params.id)
+    }
+    if (!sale) return res.status(404).json({ message: 'Sale not found' })
+
+    const currentSummary = getSalePaymentSummary(sale)
+    if (amount > currentSummary.dueAmount) {
+      return res.status(400).json({ success: false, message: 'Payment amount cannot exceed the outstanding due.' })
+    }
+
+    const payments = currentSummary.payments.map((payment) => ({ ...payment }))
+    payments.push({ amount, paymentMethod, paidAt: new Date().toISOString() })
+    const paidAmount = currentSummary.paidAmount + amount
+    const updatedValues = {
+      payments,
+      paidAmount,
+      dueAmount: Math.max(0, currentSummary.totalAmount - paidAmount),
+      paymentStatus: currentSummary.totalAmount === paidAmount ? 'Paid' : 'Partial',
+      paymentMethod,
+      change: 0,
+    }
+
+    if (getMode() === 'memory') {
+      Object.assign(sale, updatedValues)
+    } else {
+      Object.assign(sale, updatedValues)
+      await sale.save()
+    }
+
+    const plainSale = sale.toObject ? sale.toObject() : sale
+    return res.json({ ...plainSale, ...updatedValues })
   } catch (error) {
     next(error)
   }
@@ -401,4 +474,4 @@ async function deleteSale(req, res, next) {
   }
 }
 
-module.exports = { createSale, listSales, updateSale, deleteSale }
+module.exports = { createSale, listSales, updateSale, recordSalePayment, deleteSale }
